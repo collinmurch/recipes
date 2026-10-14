@@ -1,48 +1,40 @@
 # Recipes
 
-A personal recipe collection and weekly meal planner, built so an AI can do the planning and bookkeeping while the recipes stay as plain files we own.
+Plan meals with Claude, keep the recipes as plain files we own, and cook from a nice app on the phone.
 
-The goal is to cook 3–4 planned dinners a week from a single grocery trip, reusing ingredients across meals so less goes to waste.
+You work out a dinner or drink with Claude. Claude saves it as a `.cook` file in this repo. The repo rebuilds the recipe pages on collinmurch.com, and the site's RSS feed sends new recipes to Mela on iOS. Claude can also search everything we've saved, so a week of meals can share ingredients and come from one grocery trip.
 
-## How it works
-
-```
-Claude (with this repo attached)
-  └─ writes recipes and weekly plans, previews and checks them, then pushes
-       └─ this repo's CI runs the check and pings the website repo
-            └─ collinmurch.com rebuilds, pulling in the latest recipes
-                 ├─ /recipes: readable recipe pages, themed like the rest of the site
-                 └─ /recipes/feed.xml: an RSS feed that Mela subscribes to
-```
-
-This repo holds content only: recipes, plans, the ingredient dictionary, the parser, and the Claude skill. The pages themselves live in [collinmurch.github.io](https://github.com/collinmurch/collinmurch.github.io), so the recipes share its theme, build, and checks. Claude only ever needs access to this repo.
-
-## Layout
+It's all free apart from the domain, and Claude only has access to this one repo.
 
 ```
-recipes/*.cook              one file per recipe or drink (Cooklang)
-plans/*.md                  one file per week
-vocab.yaml                  the ingredient dictionary
-lib/cook.js                 turns a .cook file into a recipe object
-scripts/recipes.js          the command-line tool Claude uses
-.claude/skills/recipes/     instructions for Claude
-.github/workflows/check.yml validates, then triggers the site rebuild
+Claude ──push──▶ this repo ──check passes──▶ collinmurch.com/recipes ──RSS──▶ Mela
+   ▲                                                   │
+   └──────────── searches the published index ─────────┘
 ```
 
-## Recipes are `.cook` files
+There are four parts: this repo, the Claude skill, the website, and Mela.
 
-Recipes use [Cooklang](https://cooklang.org), a plain-text recipe format. Ingredients are marked inline in the steps, like `@cilantro{1%bunch}`, and equipment like `#dutch oven{}`. That means the ingredient list, quantities, and equipment are read from the steps, not written out twice.
+## 1. This repo
 
-The frontmatter at the top holds only what can't be worked out from the steps: title, course (main, side, dessert, or drink), cuisine, servings, active and total time, how well it keeps as leftovers, tags, rating, and source.
+The source of truth. It holds content only, with no website code.
 
-## The ingredient dictionary
+```
+recipes/*.cook            recipes and drinks
+plans/*.md                one file per week
+vocab.yaml                every ingredient name, grouped by store section
+.claude/skills/recipes/   the skill: instructions, the parser, and the script
+```
 
-`vocab.yaml` is the one list of ingredient names used across every recipe, grouped by store section. Two sections never appear on a shopping list: `pantry` (staples we always have) and `bar` (bottles that last for months). Names can have aliases, so "green onion" becomes `scallion` automatically.
+**Recipes** are written in [Cooklang](https://cooklang.org). Ingredients are marked inside the steps (`@cilantro{1%bunch}`), so the ingredient list, amounts, and equipment come from the steps instead of being typed twice. The frontmatter holds only what the steps can't tell you: title, course (main, side, dessert, or drink), cuisine, servings, times, how well it keeps, tags, rating, and source.
+
+**Plans** list the week's recipes, when each was cooked, notes, and what we spent, with the grocery list underneath. "Last cooked" comes from the plans, so a recipe file never changes just because we made it.
+
+**Vocab** is the dictionary of ingredient names. Each name appears once, under its store section. `pantry` and `bar` hold things we always have, so they're left off shopping lists.
 
 ```yaml
 produce:
   cilantro: {}
-  scallion: { aka: [green onion] }
+  scallion: { aka: [green onion, spring onion] }
 meat:
   pork-shoulder: { protein: pork }
 pantry:
@@ -51,74 +43,63 @@ bar:
   rye: {}
 ```
 
-Using the same name everywhere is what lets us spot shared ingredients between recipes and add up quantities for a shopping list.
+### Adding ingredients
 
-## Weekly plans
+One name per ingredient is what makes shared ingredients and shopping-list totals work, so adding to the vocab should be easy and hard to get wrong. When a recipe uses an ingredient, the script works through these steps:
 
-Each week is a markdown file listing the chosen recipes, when each one was cooked, any notes, and what we spent. The page body holds the combined grocery list, grouped by store section.
+1. **Normalize the name.** It lowercases, hyphenates, and makes the word singular, so `Green Onions` becomes `green-onion`.
+2. **Look it up.** An exact name or alias match is replaced silently. `green-onion` becomes `scallion`.
+3. **Suggest close matches.** If there's no match, it lists the nearest names by spelling and shared words. `pork-butt` suggests `pork-shoulder`, and `chipotle` suggests `chipotle-in-adobo`.
+4. **Ask Claude to decide.** Claude either adds an alias (`vocab alias scallion "green onion"`) or a new entry (`vocab add guajillo --section pantry`).
 
-"Last cooked" is worked out from these plans, so recipe files never need editing just because we made something.
+Claude makes the judgment call (is coriander the same as cilantro?), and the script does the bookkeeping. It puts the entry in the right section in alphabetical order and refuses duplicates. Every alias added means fewer questions next time.
 
-## One parser, used everywhere
+**On every push**, CI runs the same check the skill runs. If it passes, CI tells the website to rebuild. A bad recipe never reaches the site.
 
-`lib/cook.js` is a small, dependency-free parser for the parts of Cooklang we use. It turns a `.cook` file into one recipe object: frontmatter, an ingredient list with amounts and store sections, equipment, and steps split into plain text, ingredients, and timers.
+## 2. The Claude skill
 
-Everything is built from that object: the website page, the Mela files, the shopping lists, and Claude's previews. Because the website imports the parser straight from this repo, a recipe that looks right in a preview will look the same on the site.
+`.claude/skills/recipes/` holds `SKILL.md` (the workflow and conventions), `cook.js` (the parser), and `recipes.js` (the script). Both run with Node or Bun and have no dependencies. The website uses the same parser, so a preview in chat matches the published page.
 
-## Finding recipes without loading them all
+The script reads from a local clone when there is one, or from the live site when there isn't, so most work doesn't need the repo at all:
 
-There's no index file to keep up to date. `find` reads every recipe's frontmatter and the plans directly, which takes milliseconds even with hundreds of recipes, and prints only the matches. Claude filters first, then opens only the few recipes it picks.
+| Command | Does | Needs the repo? |
+|---|---|---|
+| `find` | Search by course, protein, cuisine, time, or last cooked | No |
+| `show <name>` | Show a recipe as it'll look on the site | No |
+| `grocery <names…>` | Combine recipes into one shopping list, grouped by section | No |
+| `validate <file>` | Check a draft against the live vocab, exactly as CI will | No |
+| `vocab add` / `vocab alias` | Add an ingredient or alias | Yes |
+| `new <file>` | Fix the ingredient names, name the file, and save it | Yes |
+| `plan` / `cooked` | Write a week's plan or mark a meal as cooked | Yes |
 
-For readers without a shell, the site build also publishes `/recipes/index.json`, a short summary of every recipe.
+Saving anything means pushing, which needs a session with this repo attached. It's tiny, so cloning takes seconds. A typical session validates everything first, then pushes once, so CI runs once.
 
-## The script
+The same folder can be uploaded to Claude as a skill for regular chats. CI zips it on every change, so updating is one re-upload. The site publishes the parser version, and the skill refuses to validate if it's out of date.
 
-`scripts/recipes.js` runs with Bun or plain Node and has no dependencies, so it works anywhere:
+## 3. The website
 
-- `find`: filter by course, protein, cuisine, time, or how recently we cooked something
-- `new`: tidy up a new recipe (fix ingredient names, name the file) and add it
-- `preview`: show a recipe exactly as the site will, as markdown in the chat
-- `plan`: write a week's plan with a combined, section-grouped grocery list
-- `cooked`: mark a recipe as cooked this week
-- `check`: confirm every recipe parses, every ingredient is in the dictionary, and every plan points at real recipes
+The recipe pages live in [collinmurch.github.io](https://github.com/collinmurch/collinmurch.github.io), so they share its theme, build, and checks.
 
-Claude chooses what to cook and writes the recipe text. The script handles anything that has to be exactly right, like names, totals, and file paths.
+When this repo pings it, the site checks out the latest recipes, parses them at build time, and deploys to GitHub Pages:
 
-## The Claude skill
+- `/recipes`: every recipe, filterable by course, cuisine, and protein
+- `/recipes/<name>`: a recipe page, plus its raw `.cook` source
+- `/recipes/plans/<week>`: a week's plan and grocery list
+- `/recipes/index.json` and `/recipes/vocab.json`: what the skill searches and validates against
+- `/recipes/feed.xml` and `/recipes/all.melarecipes`: for Mela
 
-The skill in `.claude/skills/recipes/` describes the workflow: find, choose, write, preview, check, and push. It also explains how Cooklang maps to the recipe object, so Claude can show you a recipe in the chat before anything is pushed.
+The parser only runs during the build, so the pages ship as plain HTML.
 
-Every change gets previewed and checked locally first, and a session's changes go out in one push. That keeps CI to one short run per session. The same skill folder can be uploaded to Claude so regular chats know the conventions too.
+## 4. Mela
 
-## The website side
+[Mela](https://mela.recipes) is the app we cook from. It gets recipes three ways:
 
-In `collinmurch.github.io`, the build checks out this repo into `content/recipes` and uses `lib/cook.js` while prerendering:
+- **Feed.** Mela subscribes to `/recipes/feed.xml`, and new recipes appear ready to add with one tap.
+- **Share sheet.** Every page includes standard recipe markup, so any recipe can be saved from Safari.
+- **Bulk import.** `all.melarecipes` loads the whole collection at once.
 
-- `/recipes`: everything, with filters by course, cuisine, and protein
-- `/recipes/<name>`: one recipe, rendered by a Svelte component from the recipe object
-- `/recipes/plans/<week>`: a weekly plan and its grocery list
-- `/recipes/feed.xml`: the newest recipes, for Mela
-- `/recipes/all.melarecipes`: the whole collection, for importing into Mela at once
-- `/recipes/index.json`: the summary for other tools
+Each recipe's Mela ID is its page URL, so importing the same recipe twice doesn't create a duplicate. This only goes one way: edits made in Mela don't come back here.
 
-The parser only runs at build time, so recipe pages ship as plain HTML. The site's existing bundle budgets, lint, and tests cover the recipe pages too.
+## Cost
 
-## Mela
-
-[Mela](https://mela.recipes) is the app we cook from. It gets recipes from the site in three ways:
-
-1. **Feed:** Mela subscribes to `/recipes/feed.xml`, and new recipes show up in the app ready to add with one tap.
-2. **Share sheet:** every recipe page includes standard recipe markup (schema.org JSON-LD), so any page can be saved to Mela from Safari.
-3. **Bulk file:** `all.melarecipes` is a zip of Mela's own JSON recipe format, built from the recipe objects, for loading the whole collection at once.
-
-Each recipe's Mela ID is its page URL, which matches what Mela uses when it imports from the web, so the same recipe isn't added twice.
-
-This is one-way: edits made inside Mela don't come back here. Changes go through the repo.
-
-## CI
-
-1. A push here runs `check`. Pushes that only change docs are skipped.
-2. If it passes, the workflow sends a `recipes-updated` event to the website repo.
-3. The website rebuilds and deploys to GitHub Pages.
-
-A bad recipe never reaches the site or Mela, whoever added it. This repo can stay private: one fine-grained GitHub token, limited to these two repos, lets the site read it and lets this repo trigger the rebuild. Everything runs on GitHub's free tier.
+Free. GitHub Actions and Pages are free for the public site repo, and this private repo's checks fit easily in GitHub's free minutes. One fine-grained GitHub token, limited to these two repos, lets the site read this repo and lets this repo trigger the rebuild.
