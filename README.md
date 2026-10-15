@@ -12,83 +12,92 @@ Claude ──push──▶ this repo ──check passes──▶ collinmurch.com
    └──────────── searches the published index ─────────┘
 ```
 
-There are four parts: this repo, the Claude skill, the website, and Mela.
+There are four parts: this repo, the skill, the website, and Mela.
 
 ## 1. This repo
 
-The source of truth. It holds content only, with no website code.
+The source of truth. It holds content, plus the one tool that reads it.
 
 ```
-recipes/*.cook            recipes and drinks
-plans/*.md                one file per week
+recipes/*.cook            food, one dish per file
+drinks/*.cook             drinks
+plans/*.md                a week per file (2026-10-12.md), or a one-off (2026-12-24-christmas-eve.md)
 vocab.yaml                every ingredient name, grouped by store section
-.claude/skills/recipes/   the skill: instructions, the parser, and the script
+.agents/skills/recipes/   the skill: SKILL.md, the format reference, and the Python tool
+.claude/skills            a symlink to .agents/skills, so Claude Code and Codex share one copy
+tests/                    pytest tests for the tool, plus a check of the whole collection
+pyproject.toml, uv.lock   the dev environment (PyYAML, pytest, ruff, ty), managed with uv
 ```
 
-**Recipes** are written in [Cooklang](https://cooklang.org). Ingredients are marked inside the steps (`@cilantro{1%bunch}`), so the ingredient list, amounts, and equipment come from the steps instead of being typed twice. The frontmatter holds only what the steps can't tell you: title, course (main, side, dessert, or drink), cuisine, servings, times, how well it keeps, tags, rating, and source.
+**Recipes** are written in [Cooklang](https://cooklang.org). Ingredients are marked inside the steps (`@cilantro{1%bunch}`), so the ingredient list, amounts, and equipment come from the steps instead of being typed twice. The frontmatter holds only what the steps can't tell you: title, course, cuisine, servings, times, how well it keeps, tags, the dishes it pairs with, rating, and source. A meal is a main plus its sides, linked through `pairs`, so a good side can go with more than one main. The files are standard Cooklang, and the parser is checked against the official `cook` CLI.
 
-**Plans** list the week's recipes, when each was cooked, notes, and what we spent, with the grocery list underneath. "Last cooked" comes from the plans, so a recipe file never changes just because we made it.
+**Plans** list the meals, when each was cooked, notes, and what we spent. The grocery list is worked out from the meals instead of being stored, so it can't drift. "Last cooked" comes from the plans, so a recipe file never changes just because we made it.
 
-**Vocab** is the dictionary of ingredient names. Each name appears once, under its store section. `pantry` and `bar` hold things we always have, so they're left off shopping lists.
+**Vocab** is the dictionary of ingredient names. Each name appears once, under its store section, and the sections are in the order we walk the store. `pantry` and `bar` hold things we always have, so they're left off shopping lists.
 
 ```yaml
 produce:
-  cilantro: {}
-  scallion: { aka: [green onion, spring onion] }
+  cilantro: {aka: [coriander]}
+  scallion: {aka: [green onion, spring onion]}
 meat:
-  pork-shoulder: { protein: pork }
+  pork-shoulder: {aka: [pork butt], protein: pork}
 pantry:
   cumin: {}
 bar:
-  rye: {}
+  rye: {aka: [rye whiskey]}
 ```
 
 ### Adding ingredients
 
-One name per ingredient is what makes shared ingredients and shopping-list totals work, so adding to the vocab should be easy and hard to get wrong. When a recipe uses an ingredient, the script works through these steps:
+One name per ingredient is what makes shared ingredients and shopping-list totals work. Recipes are written the way they read, and names are matched when the files are read, so the text is never rewritten:
 
-1. **Normalize the name.** It lowercases, hyphenates, and makes the word singular, so `Green Onions` becomes `green-onion`.
-2. **Look it up.** An exact name or alias match is replaced silently. `green-onion` becomes `scallion`.
-3. **Suggest close matches.** If there's no match, it lists the nearest names by spelling and shared words. `pork-butt` suggests `pork-shoulder`, and `chipotle` suggests `chipotle-in-adobo`.
-4. **Ask Claude to decide.** Claude either adds an alias (`vocab alias scallion "green onion"`) or a new entry (`vocab add guajillo --section pantry`).
+1. **Normalize the name.** Lowercase, hyphenate, and make the last word singular, so `Green Onions` becomes `green-onion`.
+2. **Look it up.** An exact name or alias matches silently. `green-onion` is `scallion`.
+3. **Suggest close matches.** If there's no match, `validate` names the line and the nearest entries by spelling and shared words. `pork butt` suggests `pork-shoulder`, and `chipotle` suggests `chipotle-in-adobo`.
+4. **Ask Claude to decide.** Claude either adds an alias (`vocab alias cilantro coriander`) or a new entry (`vocab add guajillo-chile --section pantry`).
 
 Claude makes the judgment call (is coriander the same as cilantro?), and the script does the bookkeeping. It puts the entry in the right section in alphabetical order and refuses duplicates. Every alias added means fewer questions next time.
 
-**On every push**, CI runs the same check the skill runs. If it passes, CI tells the website to rebuild. A bad recipe never reaches the site.
+## 2. The skill
 
-## 2. The Claude skill
+`.agents/skills/recipes/` holds `SKILL.md` (the workflow), `references/format.md` (the file formats and house style), and `scripts/`: `recipes.py` and the small `cookbook` package behind it. It needs Python 3.10+ and PyYAML, which Claude's and ChatGPT's sandboxes already have, so it runs as-is in Claude Code, Codex, claude.ai, ChatGPT, and CI. Where PyYAML is missing, `uv run --with pyyaml scripts/recipes.py` covers it.
 
-`.claude/skills/recipes/` holds `SKILL.md` (the workflow and conventions), `cook.js` (the parser), and `recipes.js` (the script). Both run with Node or Bun and have no dependencies. The website uses the same parser, so a preview in chat matches the published page.
-
-The script reads from a local clone when there is one, or from the live site when there isn't, so most work doesn't need the repo at all:
+The script reads a local checkout when it's inside one. Anywhere else, it downloads the published `index.json`, so most work doesn't need the repo at all:
 
 | Command | Does | Needs the repo? |
 |---|---|---|
-| `find` | Search by course, protein, cuisine, time, or last cooked | No |
-| `show <name>` | Show a recipe as it'll look on the site | No |
+| `find` | Search by words, course, cuisine, protein, ingredient, time, or last cooked | No |
+| `show <name\|file>` | Show a recipe, or preview a draft, as it'll look on the site | No |
 | `grocery <names…>` | Combine recipes into one shopping list, grouped by section | No |
-| `validate <file>` | Check a draft against the live vocab, exactly as CI will | No |
+| `validate [files…]` | Check drafts against the vocab, exactly as CI will | No |
+| `vocab find` / `vocab list` | Look up ingredient names | No |
+| `save <files…>` | Check drafts together, name them from their titles, and file them | Yes |
 | `vocab add` / `vocab alias` | Add an ingredient or alias | Yes |
-| `new <file>` | Fix the ingredient names, name the file, and save it | Yes |
-| `plan` / `cooked` | Write a week's plan or mark a meal as cooked | Yes |
+| `plan` / `cooked` | Write a plan or mark a meal as cooked | Yes |
+| `build [dir]` | Check everything and write the site bundle | Yes |
 
 Saving anything means pushing, which needs a session with this repo attached. It's tiny, so cloning takes seconds. A typical session validates everything first, then pushes once, so CI runs once.
 
-The same folder can be uploaded to Claude as a skill for regular chats. CI zips it on every change, so updating is one re-upload. The site publishes the parser version, and the skill refuses to validate if it's out of date.
+For regular claude.ai chats, every CI run publishes the skill folder as the `recipes-skill` artifact, ready to upload to Claude. Chats need network access to `collinmurch.com` to read the index. The index records its format version, and the skill refuses to validate against a format it doesn't know, so an outdated upload says so instead of quietly disagreeing with CI.
 
 ## 3. The website
 
-The recipe pages live in [collinmurch.github.io](https://github.com/collinmurch/collinmurch.github.io), so they share its theme, build, and checks.
+The recipe pages live in [collinmurch.github.io](https://github.com/collinmurch/collinmurch.github.io), so they share its theme, build, and checks. The site never parses Cooklang or reads this repo's files. Everything it needs comes in one bundle that this repo builds:
 
-When this repo pings it, the site checks out the latest recipes, parses them at build time, and deploys to GitHub Pages:
+```
+index.json      every recipe parsed (ingredients, steps, display amounts), the plans, and the vocab
+sources/*.cook  the raw files, for "view source" links
+```
+
+On every push to `main` that passes, CI uploads the bundle as the `site` artifact. It then sends the site a `recipes-updated` dispatch with the run ID, and the site downloads that artifact, renders, and deploys:
 
 - `/recipes`: every recipe, filterable by course, cuisine, and protein
 - `/recipes/<name>`: a recipe page, plus its raw `.cook` source
-- `/recipes/plans/<week>`: a week's plan and grocery list
-- `/recipes/index.json` and `/recipes/vocab.json`: what the skill searches and validates against
+- `/recipes/plans/<id>`: a plan and its grocery list
+- `/recipes/index.json`: the bundle's index, as-is, for the skill to search and validate against
 - `/recipes/feed.xml` and `/recipes/all.melarecipes`: for Mela
 
-The parser only runs during the build, so the pages ship as plain HTML.
+The bundle is the whole contract. The schema number inside it changes only when its shape does.
 
 ## 4. Mela
 
@@ -100,6 +109,23 @@ The parser only runs during the build, so the pages ship as plain HTML.
 
 Each recipe's Mela ID is its page URL, so importing the same recipe twice doesn't create a duplicate. This only goes one way: edits made in Mela don't come back here.
 
+## Working locally
+
+```
+uv sync                                        # once: Python, PyYAML, pytest, ruff, and ty in .venv
+uv run ruff check --fix && uv run ruff format  # lint and format, as CI checks
+uv run ty check                                # type-check
+uv run pytest                                  # the tool's tests and a check of the whole collection
+alias recipes="uv run .agents/skills/recipes/scripts/recipes.py"
+recipes validate                               # just check the collection
+recipes find --protein pork
+recipes show jambalaya --servings 6
+recipes build                                  # write the bundle to dist/ (ignored by git)
+recipes find --source dist                     # read from the built index, the way claude.ai does
+```
+
+The conformance tests compare the parser with the [`cook` CLI](https://cooklang.org/cli/) when it's installed. CI skips them, so it doesn't spend time installing it.
+
 ## Cost
 
-Free. GitHub Actions and Pages are free for the public site repo, and this private repo's checks fit easily in GitHub's free minutes. One fine-grained GitHub token, limited to these two repos, lets the site read this repo and lets this repo trigger the rebuild.
+Free. GitHub Actions and Pages are free for the public site repo, and this private repo's checks fit easily in GitHub's free minutes. One fine-grained token, `SITE_TOKEN`, is stored in both repos. It can read this repo's contents and Actions artifacts, and it can write the site repo's contents, which is what sending it a dispatch requires.

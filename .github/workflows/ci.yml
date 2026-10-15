@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+      - run: uv sync --locked
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run ty check
+      - run: uv run pytest
+      - run: uv run .agents/skills/recipes/scripts/recipes.py build dist/site
+      - run: mkdir -p dist/skill && cp -R .agents/skills/recipes dist/skill/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: dist/site
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recipes-skill
+          path: dist/skill
+
+  publish:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish
+      cancel-in-progress: true
+    steps:
+      - name: Ask the site to rebuild
+        env:
+          GH_TOKEN: ${{ secrets.SITE_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::SITE_TOKEN is not set, so the site was not asked to rebuild"
+            exit 0
+          fi
+          gh api repos/collinmurch/collinmurch.github.io/dispatches \
+            -f event_type=recipes-updated \
+            -f "client_payload[repository]=${{ github.repository }}" \
+            -f "client_payload[sha]=${{ github.sha }}" \
+            -f "client_payload[run_id]=${{ github.run_id }}"

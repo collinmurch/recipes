@@ -1,0 +1,103 @@
+produce:
+  arugula: {aka: [baby arugula]}
+  asparagus: {}
+  avocado: {}
+  basil: {aka: [fresh basil]}
+  brussels-sprout: {}
+  celery: {}
+  cherry-tomato: {}
+  cilantro: {aka: [coriander, fresh cilantro]}
+  cucumber: {}
+  garlic: {}
+  ginger: {aka: [fresh ginger, ginger root]}
+  green-bell-pepper: {}
+  lemon: {}
+  lime: {}
+  mushroom: {aka: [baby bella, cremini, mixed mushrooms]}
+  orange: {}
+  parsley: {aka: [flat-leaf parsley, fresh parsley, italian parsley]}
+  red-bell-pepper: {}
+  red-onion: {}
+  rosemary: {aka: [fresh rosemary]}
+  scallion: {aka: [green onion, spring onion]}
+  shallot: {}
+  sugar-snap-pea: {aka: [snap pea]}
+  sweet-potato: {}
+  white-onion: {}
+  yellow-onion: {aka: [onion]}
+
+meat:
+  andouille-sausage: {aka: [andouille], protein: pork}
+  beef-tenderloin: {aka: [beef tenderloin steak, filet mignon], protein: beef}
+  chicken-breast: {aka: [boneless skinless chicken breast], protein: chicken}
+  chicken-thigh: {protein: chicken}
+  pork-shoulder: {aka: [boston butt, pork butt], protein: pork}
+
+seafood: {}
+
+deli:
+  prosciutto: {protein: pork}
+  rotisserie-chicken: {aka: [cooked chicken, shredded chicken], protein: chicken}
+
+dairy:
+  butter: {aka: [salted butter, unsalted butter]}
+  feta: {aka: [feta cheese]}
+  fresh-mozzarella: {aka: [mozzarella ball]}
+  heavy-cream: {aka: [heavy whipping cream]}
+  parmesan: {aka: [parmigiano reggiano]}
+
+bakery:
+  baguette: {}
+  ciabatta: {}
+  corn-tortilla: {}
+
+aisles:
+  balsamic-glaze: {}
+  beef-broth: {aka: [beef stock]}
+  chicken-broth: {aka: [chicken stock]}
+  coconut-milk: {}
+  diced-tomato: {aka: [canned diced tomatoes]}
+  jasmine-rice: {}
+  lard: {}
+  long-grain-white-rice: {aka: [long-grain rice, white rice]}
+  pesto: {}
+  quinoa: {}
+  roasted-red-pepper: {}
+  walnut: {}
+  white-miso: {aka: [miso, miso paste]}
+
+frozen: {}
+
+liquor:
+  red-wine: {aka: [malbec]}
+  white-wine: {aka: [dry white wine]}
+
+pantry:
+  balsamic-vinegar: {}
+  bay-leaf: {}
+  black-pepper: {aka: [ground black pepper, pepper]}
+  black-peppercorn: {}
+  cajun-seasoning: {}
+  cayenne: {aka: [cayenne pepper]}
+  cornstarch: {}
+  cumin: {}
+  dijon-mustard: {aka: [dijon]}
+  dried-oregano: {aka: [oregano]}
+  dried-thyme: {}
+  ground-turmeric: {aka: [turmeric]}
+  honey: {}
+  neutral-oil: {aka: [canola oil, grapeseed oil, vegetable oil]}
+  olive-oil: {aka: [evoo, extra virgin olive oil]}
+  red-pepper-flake: {aka: [chili flakes, crushed red pepper]}
+  red-wine-vinegar: {}
+  salt: {aka: [kosher salt, sea salt]}
+  sesame-seed: {aka: [toasted sesame seeds]}
+  smoked-paprika: {}
+  soy-sauce: {}
+  water: {}
+
+bar:
+  angostura-bitters: {aka: [angostura]}
+  brandied-cherry: {aka: [luxardo cherry]}
+  rye: {aka: [rye whiskey]}
+  sweet-vermouth: {}

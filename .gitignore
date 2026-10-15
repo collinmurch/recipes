@@ -1,0 +1,10 @@
+.DS_Store
+dist/
+.venv/
+__pycache__/
+.pytest_cache/
+
+.claude/*
+!.claude/skills
+.agents/*
+!.agents/skills
