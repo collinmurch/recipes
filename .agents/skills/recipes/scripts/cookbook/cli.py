@@ -82,6 +82,13 @@ def build_parser() -> argparse.ArgumentParser:
     find.add_argument("--max-time", type=int, metavar="MINUTES")
     find.add_argument("--not-since", type=iso_date, metavar="DATE", help="not cooked on or after DATE")
     find.add_argument("--kind", choices=tuple(DIRS))
+    find.add_argument(
+        "--sort",
+        choices=tuple(SORTS),
+        default="title",
+        help="cooked: longest since cooked first; time: quickest first",
+    )
+    find.add_argument("--limit", type=non_negative, default=20, help="most results to show; 0 for all")
 
     show = command("show", cmd_show, "show a recipe, or preview a draft file")
     show.add_argument("target", metavar="name|file")
@@ -158,6 +165,12 @@ def positive(value: str) -> int | float:
     return int(number) if number.is_integer() else number
 
 
+def non_negative(value: str) -> int:
+    if not value.isdigit():
+        raise argparse.ArgumentTypeError("should be a whole number, 0 or more")
+    return int(value)
+
+
 def out(text: str = "") -> None:
     sys.stdout.write(text.rstrip("\n") + "\n")
 
@@ -202,8 +215,13 @@ def cmd_find(c: Collection, args) -> None:
         ).lower()
         return all(w in haystack for w in words)
 
-    results = [r for r in c.recipes if matches(r)]
+    matching = sorted((r for r in c.recipes if matches(r)), key=SORTS[args.sort])
+    results = matching[: args.limit] if args.limit else matching
+    more = len(matching) - len(results)
+    footer = f"…and {more} more; narrow the search, or pass --limit 0 to see them all" if more else ""
     if args.json:
+        if footer:
+            print(footer, file=sys.stderr)
         return out(json.dumps([summary(r) for r in results], indent=2))
     if not results:
         return out("No matches.")
@@ -224,7 +242,16 @@ def cmd_find(c: Collection, args) -> None:
                 for r in results
             ],
         )
+        + footer
     )
+
+
+SORTS = {
+    "title": lambda r: r.get("title", r["slug"]).lower(),
+    "cooked": lambda r: (r.get("last_cooked") or "", r.get("title", r["slug"]).lower()),
+    "time": lambda r: (r.get("time_total") or 0, r.get("title", r["slug"]).lower()),
+}
+"""Orders for find. "cooked" puts the longest since cooked first, never-cooked before all."""
 
 
 def summary(r: dict) -> dict:

@@ -24,7 +24,7 @@ In the repo, use `uv run` in place of `python3`. Anywhere PyYAML is missing, `uv
 
 | Command | Does |
 |---|---|
-| `find [words…]` | Search. Filters: `--course`, `--cuisine`, `--protein` (or `none`), `--tag`, `--uses <ingredient>` (repeatable), `--max-time <min>`, `--not-since <YYYY-MM-DD>`, `--kind recipe\|drink` |
+| `find [words…]` | Search. Filters: `--course`, `--cuisine`, `--protein` (or `none`), `--tag`, `--uses <ingredient>` (repeatable), `--max-time <min>`, `--not-since <YYYY-MM-DD>`, `--kind recipe\|drink`. `--sort title\|cooked\|time`; shows 20 unless `--limit <n>` (0 for all) |
 | `show <name\|file>` | Show a recipe, or preview a draft, as it'll look on the site. `--servings <n>` scales it |
 | `grocery <name[:servings]>…` | One shopping list for several recipes, grouped by store section. `--plan <id>` uses a plan's uncooked meals |
 | `validate [files…]` | Check drafts, or the whole repo when no files are given. Exit 1 means errors |
@@ -47,9 +47,13 @@ When someone wants a recipe in another app's format, start from data instead of 
 
 Map from those fields; don't invent any.
 
+## Keeping context small
+
+The script downloads the index and prints only answers, so the collection's size never reaches you; command output does. Always query through the script; never `curl` or `cat` index.json. Narrow `find` with filters rather than raising `--limit`. Read recipes with `show`; `show --json` is about ten times longer and only worth it for converting a recipe.
+
 ## Planning meals
 
-1. Look before suggesting: `find --course main --not-since <a month ago>` turns up neglected favorites, and `--uses cilantro` finds dishes that share a perishable.
+1. Look before suggesting: `find --course main --sort cooked` puts neglected favorites first, and `--uses cilantro` finds dishes that share a perishable.
 2. Build the week around shared ingredients, so one bunch of herbs or one pack of chicken covers two dinners. Pay attention to `leftovers`: a "great" dish can cover lunches. Pair sides through each main's `pairs`.
 3. Once the user agrees, run `grocery a b:6 c` and show the list. Staples (pantry and bar) come out as a separate "On hand" checklist.
 4. In the repo, record it with `plan a b:6 c`, then commit and push.

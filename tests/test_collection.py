@@ -1,3 +1,4 @@
+import gzip
 import urllib.error
 import urllib.request
 from email.message import Message
@@ -275,3 +276,34 @@ def test_an_unreachable_host_points_to_setup(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(urllib.error.URLError("no route to host")))
     with pytest.raises(RuntimeError, match="no route to host; in a chat app"):
         download("https://x/index.json")
+
+
+class FakeResponse:
+    def __init__(self, body: bytes, encoding: str | None = None):
+        self.body = body
+        self.headers = {"Content-Encoding": encoding} if encoding else {}
+
+    def read(self) -> bytes:
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+
+def test_download_asks_for_gzip_and_unpacks_it(monkeypatch):
+    seen = {}
+
+    def urlopen(request, timeout):
+        seen["encoding"] = request.get_header("Accept-encoding")
+        return FakeResponse(gzip.compress(b'{"schema": 1}'), "gzip")
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    assert (download("https://x/index.json"), seen["encoding"]) == ('{"schema": 1}', "gzip")
+
+
+def test_download_reads_a_plain_response(monkeypatch):
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: FakeResponse(b"{}"))
+    assert download("https://x/index.json") == "{}"

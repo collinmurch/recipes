@@ -347,3 +347,57 @@ def test_show_lines_match_the_index_unscaled(cli, repo):
     shown = cli(repo, "show", "tacos").out
     for item in r["ingredients"][0]["items"]:
         assert f"- {item['line']}\n" in shown
+
+
+def dish(title: str, minutes: int) -> str:
+    return f"---\ntitle: {title}\ncourse: main\nservings: 2\ntime_total: {minutes}\n---\n\nSeason @salt.\n"
+
+
+@pytest.fixture
+def many(make_repo):
+    files = {f"recipes/dish-{n:02d}.cook": dish(f"Dish {n:02d}", 100 - n) for n in range(1, 26)}
+    files["plans/2026-10-05.md"] = "---\nmeals:\n  - recipe: dish-01\n    cooked: 2026-10-06\n---\n"
+    files["plans/2026-10-12.md"] = "---\nmeals:\n  - recipe: dish-02\n    cooked: 2026-10-13\n---\n"
+    return make_repo(files)
+
+
+def test_find_shows_twenty_by_default_and_says_how_many_more(cli, many):
+    out = cli(many, "find").out
+    assert out.count("| dish-") == 20
+    assert out.endswith("…and 5 more; narrow the search, or pass --limit 0 to see them all\n")
+
+
+def test_find_limit_zero_shows_everything(cli, many):
+    out = cli(many, "find", "--limit", "0").out
+    assert (out.count("| dish-"), "more" in out) == (25, False)
+
+
+def test_find_limit_caps_results(cli, many):
+    assert slugs(cli(many, "find", "--limit", "3", "--json")) == ["dish-01", "dish-02", "dish-03"]
+
+
+def test_find_json_reports_the_rest_on_stderr(cli, many):
+    result = cli(many, "find", "--json")
+    assert (len(json.loads(result.out)), "5 more" in result.err) == (20, True)
+
+
+def test_find_says_nothing_more_when_everything_fits(cli, both):
+    assert "more" not in cli(both, "find").out
+
+
+def test_find_sorts_by_title_by_default(cli, many):
+    assert slugs(cli(many, "find", "--limit", "2", "--json")) == ["dish-01", "dish-02"]
+
+
+def test_find_sorts_never_cooked_then_longest_ago(cli, many):
+    out = slugs(cli(many, "find", "--sort", "cooked", "--limit", "0", "--json"))
+    assert out[:2] == ["dish-03", "dish-04"]
+    assert out[-2:] == ["dish-01", "dish-02"]
+
+
+def test_find_sorts_quickest_first(cli, many):
+    assert slugs(cli(many, "find", "--sort", "time", "--limit", "2", "--json")) == ["dish-25", "dish-24"]
+
+
+def test_find_rejects_a_negative_limit(cli, many):
+    assert cli(many, "find", "--limit", "-1").code == 2

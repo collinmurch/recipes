@@ -3,6 +3,7 @@ loading everything from a repo checkout or from the published index."""
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import re
@@ -519,11 +520,15 @@ def _from_index(index: dict, origin: str) -> Collection:
 
 
 def download(url: str) -> str:
-    """Fetches a URL. urllib honors the proxy settings sandboxes use."""
-    request = urllib.request.Request(url, headers={"User-Agent": "recipes-skill"})
+    """Fetches a URL, gzipped when the server allows. urllib honors the proxy
+    settings sandboxes use."""
+    request = urllib.request.Request(url, headers={"User-Agent": "recipes-skill", "Accept-Encoding": "gzip"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return response.read().decode()
+            body = response.read()
+            if response.headers.get("Content-Encoding") == "gzip":
+                body = gzip.decompress(body)
+            return body.decode()
     except urllib.error.HTTPError as e:
         hint = "" if e.code == 404 else NETWORK_HINT
         raise RuntimeError(f"could not download {url}: HTTP {e.code}{hint}") from None
