@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collinmurch.com/recipes/index.schema.json",
+  "title": "Recipe index",
+  "description": "Everything in the recipes repo, parsed and resolved: what `recipes build` writes to index.json, what the site renders, and what the skill reads when it has no repo. Display strings (amount, line, text) are ready to show as-is; the structured fields beside them are for scaling, linking, and highlighting.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "commit", "recipes", "plans", "vocab"],
+  "properties": {
+    "schema": {
+      "description": "Format version. It changes only when a field is removed or changes meaning; new fields keep the number.",
+      "const": 1
+    },
+    "commit": {
+      "description": "The git commit this index was built from, when known.",
+      "type": ["string", "null"]
+    },
+    "recipes": {
+      "description": "Every recipe and drink, sorted by slug.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/recipe" }
+    },
+    "plans": {
+      "description": "Every plan, sorted by id (so by start date).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/plan" }
+    },
+    "vocab": {
+      "description": "The ingredient dictionary, sections in store order.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/vocabSection" }
+    }
+  },
+  "$defs": {
+    "slug": {
+      "description": "Lowercase words joined by hyphens.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "date": {
+      "description": "A calendar date, YYYY-MM-DD.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "recipe": {
+      "description": "One .cook file. Frontmatter fields appear only when set.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "kind", "path", "title", "course", "servings", "proteins", "ingredients", "cookware", "sections", "last_cooked", "times_cooked"],
+      "properties": {
+        "slug": { "$ref": "#/$defs/slug", "description": "The file name without .cook; the recipe's id and URL segment." },
+        "kind": { "description": "\"drink\" for files in drinks/, otherwise \"recipe\".", "enum": ["recipe", "drink"] },
+        "path": { "description": "The file's path in the repo, like recipes/pork-carnitas.cook.", "type": "string" },
+        "title": { "description": "The recipe's name.", "type": "string" },
+        "course": { "description": "Where it fits in a meal.", "enum": ["breakfast", "main", "side", "sauce", "snack", "dessert", "drink"] },
+        "cuisine": { "$ref": "#/$defs/slug", "description": "Lowercase cuisine, like mexican or southeast-asian." },
+        "servings": { "description": "How many it serves as written; amounts scale from this.", "type": "number", "exclusiveMinimum": 0 },
+        "time_active": { "description": "Hands-on minutes.", "type": "integer", "minimum": 1 },
+        "time_total": { "description": "Minutes from start to plate, including passive time. Absent only for drinks.", "type": "integer", "minimum": 1 },
+        "leftovers": { "description": "How well it keeps: great means as good or better the next day.", "enum": ["great", "good", "poor"] },
+        "tags": { "description": "Lowercase labels like weeknight or freezer-friendly.", "type": "array", "items": { "$ref": "#/$defs/slug" } },
+        "rating": { "description": "Our rating, 1 to 5, once we've made it.", "type": "integer", "minimum": 1, "maximum": 5 },
+        "source": { "description": "Where it came from: a URL, or text like \"Grandma\".", "type": "string" },
+        "description": { "description": "One sentence for the index page.", "type": "string" },
+        "pairs": { "description": "Slugs of dishes that go with it, usually sides for a main.", "type": "array", "items": { "$ref": "#/$defs/slug" } },
+        "proteins": { "description": "Proteins from its non-optional ingredients, per the vocab; empty means none.", "type": "array", "items": { "type": "string" } },
+        "ingredients": { "description": "Ingredient lists, one per section that has ingredients.", "type": "array", "items": { "$ref": "#/$defs/ingredientGroup" } },
+        "cookware": { "description": "Equipment named in the steps, in order of first use.", "type": "array", "items": { "type": "string" } },
+        "sections": { "description": "The method: steps and notes, grouped by section.", "type": "array", "items": { "$ref": "#/$defs/section" } },
+        "last_cooked": { "description": "The latest cooked date across all plans, or null if never.", "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] },
+        "times_cooked": { "description": "How many times plans record it as cooked.", "type": "integer", "minimum": 0 }
+      }
+    },
+    "ingredientGroup": {
+      "description": "The ingredients of one section, with repeat mentions combined.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["section", "items"],
+      "properties": {
+        "section": { "description": "The section's heading, or null for the unnamed first section.", "type": ["string", "null"] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/ingredientItem" }, "description": "Ingredients in order of first use." }
+      }
+    },
+    "ingredientItem": {
+      "description": "One ingredient in a list.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "text", "optional", "note", "amount", "amounts", "line"],
+      "properties": {
+        "name": { "description": "The vocab name, like scallion; null if it isn't in the vocab (only possible in a draft).", "type": ["string", "null"] },
+        "text": { "description": "The name as the recipe writes it, like green onions.", "type": "string" },
+        "optional": { "description": "Marked optional with @?, such as a garnish.", "type": "boolean" },
+        "note": { "description": "Prep or substitution notes, joined with \"; \" when mentioned more than once.", "type": ["string", "null"] },
+        "amount": { "description": "The total amount for display, like \"1 1/2 cups\"; empty when none is given.", "type": "string" },
+        "amounts": { "description": "The same total, structured for scaling. Several parts when units can't be combined, like a weight and a volume.", "type": "array", "items": { "$ref": "#/$defs/amount" } },
+        "line": { "description": "The whole ingredient line, ready to show: \"1.5 kg pork shoulder (cut into chunks)\".", "type": "string" }
+      }
+    },
+    "amount": {
+      "description": "A quantity and unit. Exactly one of value or text is present unless only a unit was written.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit"],
+      "properties": {
+        "value": { "description": "A number; multiply by (wanted servings / servings) to scale.", "type": "number" },
+        "text": { "description": "A quantity that isn't a number, like \"2-3\" or \"a pinch\"; doesn't scale.", "type": "string" },
+        "unit": { "description": "Canonical unit (tsp, cup, g, clove...), or the written unit if unknown, or null for a count.", "type": ["string", "null"] },
+        "fixed": { "description": "Present and true when the amount must not scale.", "const": true }
+      }
+    },
+    "section": {
+      "description": "A run of steps and notes under one heading.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "content"],
+      "properties": {
+        "name": { "description": "The heading, or null for the unnamed first section.", "type": ["string", "null"] },
+        "content": { "description": "Steps and notes in order.", "type": "array", "items": { "oneOf": [{ "$ref": "#/$defs/step" }, { "$ref": "#/$defs/note" }] } }
+      }
+    },
+    "step": {
+      "description": "One step of the method.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "number", "text", "tokens"],
+      "properties": {
+        "type": { "const": "step", "description": "Marks a step." },
+        "number": { "description": "Position within its section, from 1.", "type": "integer", "minimum": 1 },
+        "text": { "description": "The step's prose, ready to show.", "type": "string" },
+        "tokens": { "description": "The same prose split into pieces, for highlighting ingredients, equipment, and timers. Joining their display text gives text.", "type": "array", "items": { "$ref": "#/$defs/token" } }
+      }
+    },
+    "note": {
+      "description": "A tip or aside written with >.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "text"],
+      "properties": {
+        "type": { "const": "note", "description": "Marks a note." },
+        "text": { "description": "The note's text.", "type": "string" }
+      }
+    },
+    "token": {
+      "description": "A piece of a step. Its display text is value for text, amount for a timer, and text otherwise.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "value"],
+          "properties": {
+            "type": { "const": "text", "description": "Plain prose." },
+            "value": { "description": "The prose.", "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "text", "name", "amount", "note", "optional"],
+          "properties": {
+            "type": { "const": "ingredient", "description": "An ingredient mention." },
+            "text": { "description": "The name as written in the step.", "type": "string" },
+            "name": { "description": "The vocab name, or null if unknown.", "type": ["string", "null"] },
+            "amount": { "description": "This mention's amount for display; empty when none.", "type": "string" },
+            "note": { "description": "This mention's note.", "type": ["string", "null"] },
+            "optional": { "description": "Marked optional.", "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "text"],
+          "properties": {
+            "type": { "const": "cookware", "description": "An equipment mention." },
+            "text": { "description": "The equipment as written.", "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "text", "amount"],
+          "properties": {
+            "type": { "const": "timer", "description": "A timed wait." },
+            "text": { "description": "The timer's name, if it has one.", "type": ["string", "null"] },
+            "amount": { "description": "The duration for display, like \"8 minutes\".", "type": "string" }
+          }
+        }
+      ]
+    },
+    "plan": {
+      "description": "One plans/*.md file: a week, or a one-off like a dinner party.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "start", "name", "title", "spent", "extras", "meals", "notes"],
+      "properties": {
+        "id": { "description": "The file name without .md, like 2026-10-12 or 2026-12-24-christmas-eve.", "type": "string" },
+        "path": { "description": "The file's path in the repo.", "type": "string" },
+        "start": { "$ref": "#/$defs/date", "description": "The first day, from the file name." },
+        "name": { "description": "The name part of a one-off plan's id, or null for a week.", "anyOf": [{ "$ref": "#/$defs/slug" }, { "type": "null" }] },
+        "title": { "description": "An optional title.", "type": ["string", "null"] },
+        "spent": { "description": "What the shopping cost, if recorded.", "type": ["number", "null"] },
+        "extras": { "description": "Other things to buy, placed by the vocab when they match.", "type": "array", "items": { "type": "string" } },
+        "meals": { "description": "What's planned and what was cooked.", "type": "array", "items": { "$ref": "#/$defs/meal" } },
+        "notes": { "description": "The Markdown body, trimmed.", "type": "string" }
+      }
+    },
+    "meal": {
+      "description": "One planned or cooked dish.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recipe"],
+      "properties": {
+        "recipe": { "$ref": "#/$defs/slug", "description": "The recipe's slug." },
+        "date": { "$ref": "#/$defs/date", "description": "When it's planned." },
+        "servings": { "description": "Servings to make, if not the recipe's own.", "type": "number", "exclusiveMinimum": 0 },
+        "cooked": { "$ref": "#/$defs/date", "description": "When it was made; absent until then." },
+        "note": { "description": "Anything worth remembering.", "type": "string" }
+      }
+    },
+    "vocabSection": {
+      "description": "One store section.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "staple", "items"],
+      "properties": {
+        "name": { "description": "The section, like produce or pantry.", "type": "string" },
+        "staple": { "description": "Always stocked (pantry, bar), so left off shopping lists.", "type": "boolean" },
+        "items": { "description": "Entries in alphabetical order.", "type": "array", "items": { "$ref": "#/$defs/vocabEntry" } }
+      }
+    },
+    "vocabEntry": {
+      "description": "One ingredient name.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "description": "Lowercase, hyphenated, singular: green-onion style.", "type": "string" },
+        "aka": { "description": "Other names that mean this entry.", "type": "array", "items": { "type": "string" } },
+        "protein": { "description": "The protein it counts as, like pork.", "type": "string" }
+      }
+    }
+  }
+}

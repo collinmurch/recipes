@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
-from . import render, yamlio
+from . import render, schema_org, yamlio
 from .collection import (
     COURSES,
     DIRS,
@@ -86,6 +86,10 @@ def build_parser() -> argparse.ArgumentParser:
     show = command("show", cmd_show, "show a recipe, or preview a draft file")
     show.add_argument("target", metavar="name|file")
     show.add_argument("--servings", type=positive)
+
+    export = command("export", cmd_export, "print recipes as schema.org Recipe JSON-LD, for other apps")
+    export.add_argument("targets", nargs="*", metavar="name|file")
+    export.add_argument("--all", action="store_true", help="every recipe and drink, as one @graph")
 
     grocery = command("grocery", cmd_grocery, "one shopping list for several recipes")
     grocery.add_argument("picks", nargs="*", metavar="name[:servings]")
@@ -232,6 +236,17 @@ def summary(r: dict) -> dict:
 def cmd_show(c: Collection, args) -> None:
     r = resolve(c, args.target, allow_file=True)
     out(json.dumps(r, indent=2) if args.json else render.recipe(r, args.servings))
+
+
+def cmd_export(c: Collection, args) -> None:
+    if args.all == bool(args.targets):
+        raise Exit("export needs recipe names or --all")
+    if args.all:
+        document = schema_org.graph(c.recipes)
+    else:
+        records = [resolve(c, target, allow_file=True) for target in args.targets]
+        document = schema_org.recipe(records[0]) if len(records) == 1 else schema_org.graph(records)
+    out(json.dumps(document, indent=2, ensure_ascii=False))
 
 
 def cmd_grocery(c: Collection, args) -> None:
@@ -381,13 +396,18 @@ def cmd_build(c: Collection, args) -> None:
         report(c.problems, "build")
         raise Exit("not built")
     target = Path(args.dir).resolve()
-    sources = target / "sources"
-    shutil.rmtree(sources, ignore_errors=True)
-    sources.mkdir(parents=True)
+    for folder in ("sources", "jsonld"):
+        shutil.rmtree(target / folder, ignore_errors=True)
+        (target / folder).mkdir(parents=True)
     for r in c.recipes:
-        shutil.copyfile(root / r["path"], sources / f"{r['slug']}.cook")
-    (target / "index.json").write_text(json.dumps(c.index, ensure_ascii=False, separators=(",", ":")) + "\n")
-    out(f"wrote {args.dir}/index.json and {count(len(c.recipes), 'source')}")
+        shutil.copyfile(root / r["path"], target / "sources" / f"{r['slug']}.cook")
+        write_json(target / "jsonld" / f"{r['slug']}.json", schema_org.recipe(r))
+    write_json(target / "index.json", c.index)
+    out(f"wrote {args.dir}/index.json, plus sources/ and jsonld/ for {count(len(c.recipes), 'recipe')}")
+
+
+def write_json(path: Path, data) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
 @dataclass

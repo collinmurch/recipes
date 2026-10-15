@@ -14,9 +14,6 @@ def slugs(result) -> list[str]:
     return [r["slug"] for r in json.loads(result.out)]
 
 
-# validate
-
-
 def test_validate_passes_a_clean_repo(cli, repo):
     result = cli(repo, "validate")
     assert (result.code, result.out) == (0, "1 recipe, 0 plans: ok\n")
@@ -46,9 +43,6 @@ def test_validate_reports_a_missing_file(cli, repo):
     assert "no such file" in cli(repo, "validate", "nope.cook").err
 
 
-# show
-
-
 def test_show_renders_a_recipe(cli, repo):
     out = cli(repo, "show", "tacos").out
     assert out.startswith("# Tacos")
@@ -71,9 +65,6 @@ def test_show_suggests_close_names(cli, repo):
 
 def test_show_prints_json(cli, repo):
     assert json.loads(cli(repo, "show", "tacos", "--json").out)["slug"] == "tacos"
-
-
-# find
 
 
 def test_find_filters_by_protein(cli, both):
@@ -108,9 +99,6 @@ def test_find_prints_a_table(cli, both):
     assert "| tacos | Tacos | main |" in cli(both, "find").out
 
 
-# grocery
-
-
 def test_grocery_combines_recipes_and_marks_shared_items(cli, both):
     out = cli(both, "grocery", "tacos", "salsa-verde").out
     assert "- [ ] cilantro — 1 1/2 bunches · tacos, salsa-verde" in out
@@ -131,9 +119,6 @@ def test_grocery_rejects_bad_servings(cli, repo):
 
 def test_grocery_needs_something(cli, repo):
     assert cli(repo, "grocery").code == 1
-
-
-# save
 
 
 def test_save_files_a_draft_under_its_title(cli, repo):
@@ -179,9 +164,6 @@ def test_save_leaves_a_filed_recipe_in_place(cli, repo):
     assert cli(repo, "save", "recipes/tacos.cook").out == "saved recipes/tacos.cook\n"
 
 
-# vocab
-
-
 def test_vocab_add_keeps_the_file_canonical(cli, repo):
     assert cli(repo, "vocab", "add", "Guajillo Chiles", "--section", "pantry").code == 0
     assert "pantry:\n  guajillo-chile: {}\n  salt: {}\n" in (repo / "vocab.yaml").read_text()
@@ -208,9 +190,6 @@ def test_vocab_find_suggests_close_names(cli, repo):
 
 def test_vocab_list_shows_a_section(cli, repo):
     assert cli(repo, "vocab", "list", "produce").out == "produce: cilantro, lime\n"
-
-
-# plan and cooked
 
 
 def test_plan_writes_a_week_and_its_groceries(cli, repo):
@@ -264,9 +243,6 @@ def test_grocery_from_a_plan_skips_cooked_meals(cli, both):
     assert "cilantro — 1/2 bunch" in out
 
 
-# build and the published index
-
-
 def test_build_writes_the_index_and_sources(cli, repo):
     assert cli(repo, "build", "out").code == 0
     index = json.loads((repo / "out/index.json").read_text())
@@ -318,3 +294,56 @@ def test_vocab_fixture_is_canonical():
     from cookbook.vocab import Vocab
 
     assert Vocab.parse(VOCAB).stringify() == VOCAB
+
+
+def test_export_prints_one_recipe_as_json_ld(cli, repo):
+    out = json.loads(cli(repo, "export", "tacos").out)
+    assert (out["@type"], out["name"], out["recipeYield"]) == ("Recipe", "Tacos", "4 servings")
+
+
+def test_export_prints_several_recipes_as_a_graph(cli, both):
+    out = json.loads(cli(both, "export", "tacos", "salsa-verde").out)
+    assert [r["name"] for r in out["@graph"]] == ["Tacos", "Salsa Verde"]
+
+
+def test_export_all_includes_everything(cli, both):
+    out = json.loads(cli(both, "export", "--all").out)
+    assert sorted(r["name"] for r in out["@graph"]) == ["Salsa Verde", "Tacos"]
+
+
+def test_export_previews_a_draft(cli, repo):
+    (repo / "draft.cook").write_text(SALSA)
+    assert json.loads(cli(repo, "export", "draft.cook").out)["name"] == "Salsa Verde"
+
+
+def test_export_needs_names_or_all(cli, repo):
+    assert "needs recipe names or --all" in cli(repo, "export").err
+    assert cli(repo, "export", "tacos", "--all").code == 1
+
+
+def test_build_writes_json_ld_matching_export(cli, repo):
+    cli(repo, "build", "out")
+    built = json.loads((repo / "out/jsonld/tacos.json").read_text())
+    assert built == json.loads(cli(repo, "export", "tacos").out)
+
+
+def test_build_replaces_stale_files(cli, repo):
+    cli(repo, "build", "out")
+    (repo / "out/jsonld/gone.json").write_text("{}")
+    (repo / "out/sources/gone.cook").write_text("")
+    cli(repo, "build", "out")
+    assert not (repo / "out/jsonld/gone.json").exists()
+    assert not (repo / "out/sources/gone.cook").exists()
+
+
+def test_show_json_has_ready_to_show_text(cli, repo):
+    r = json.loads(cli(repo, "show", "tacos", "--json").out)
+    assert r["ingredients"][0]["items"][0]["line"] == "1 kg pork shoulder"
+    assert r["sections"][0]["content"][0]["text"] == "Season pork shoulder with salt. Serve with limes and cilantro."
+
+
+def test_show_lines_match_the_index_unscaled(cli, repo):
+    r = json.loads(cli(repo, "show", "tacos", "--json").out)
+    shown = cli(repo, "show", "tacos").out
+    for item in r["ingredients"][0]["items"]:
+        assert f"- {item['line']}\n" in shown

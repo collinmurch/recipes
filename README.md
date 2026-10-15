@@ -71,6 +71,7 @@ The script reads a local checkout when it's inside one. Anywhere else, it downlo
 | `grocery <names…>` | Combine recipes into one shopping list, grouped by section | No |
 | `validate [files…]` | Check drafts against the vocab, exactly as CI will | No |
 | `vocab find` / `vocab list` | Look up ingredient names | No |
+| `export <names…>` | Print recipes as schema.org Recipe JSON-LD, for other apps | No |
 | `save <files…>` | Check drafts together, name them from their titles, and file them | Yes |
 | `vocab add` / `vocab alias` | Add an ingredient or alias | Yes |
 | `plan` / `cooked` | Write a plan or mark a meal as cooked | Yes |
@@ -78,16 +79,19 @@ The script reads a local checkout when it's inside one. Anywhere else, it downlo
 
 Saving anything means pushing, which needs a session with this repo attached. It's tiny, so cloning takes seconds. A typical session validates everything first, then pushes once, so CI runs once.
 
-For regular claude.ai chats, every CI run publishes the skill folder as the `recipes-skill` artifact, ready to upload to Claude. Chats need network access to `collinmurch.com` to read the index. The index records its format version, and the skill refuses to validate against a format it doesn't know, so an outdated upload says so instead of quietly disagreeing with CI.
+For regular chats in Claude or ChatGPT, every CI run publishes the skill folder as the `recipes-skill` artifact, ready to upload; see [Setting up the chat apps](#setting-up-the-chat-apps). The index records its format version, and the skill refuses to validate against a format it doesn't know, so an outdated upload says so instead of quietly disagreeing with CI.
 
 ## 3. The website
 
 The recipe pages live in [collinmurch.github.io](https://github.com/collinmurch/collinmurch.github.io), so they share its theme, build, and checks. The site never parses Cooklang or reads this repo's files. Everything it needs comes in one bundle that this repo builds:
 
 ```
-index.json      every recipe parsed (ingredients, steps, display amounts), the plans, and the vocab
+index.json      every recipe parsed, the plans, and the vocab
+jsonld/*.json   each recipe as schema.org Recipe JSON-LD, to embed in its page
 sources/*.cook  the raw files, for "view source" links
 ```
+
+[`index.schema.json`](.agents/skills/recipes/references/index.schema.json) documents every field of `index.json`, and the tests hold every build to it. Display strings come ready to use: each ingredient's `line` ("1.5 kg pork shoulder (cubed)") and each step's `text`. So the site, a Mela converter, or a chat can show recipes without re-deriving anything, and the structured fields are there for scaling and highlighting. The JSON-LD leaves out the page `url`, which the site adds.
 
 On every push to `main` that passes, CI uploads the bundle as the `site` artifact. It then sends the site a `recipes-updated` dispatch with the run ID, and the site downloads that artifact, renders, and deploys:
 
@@ -97,7 +101,7 @@ On every push to `main` that passes, CI uploads the bundle as the `site` artifac
 - `/recipes/index.json`: the bundle's index, as-is, for the skill to search and validate against
 - `/recipes/feed.xml` and `/recipes/all.melarecipes`: for Mela
 
-The bundle is the whole contract. The schema number inside it changes only when its shape does.
+The bundle is the whole contract. New fields can appear at any time; the schema number changes only when a field is removed or changes meaning.
 
 ## 4. Mela
 
@@ -108,6 +112,15 @@ The bundle is the whole contract. The schema number inside it changes only when 
 - **Bulk import.** `all.melarecipes` loads the whole collection at once.
 
 Each recipe's Mela ID is its page URL, so importing the same recipe twice doesn't create a duplicate. This only goes one way: edits made in Mela don't come back here.
+
+## Setting up the chat apps
+
+To use the skill in regular chats, download the latest `recipes-skill` artifact from a CI run and upload the `recipes` folder as a skill. Then let the app reach `collinmurch.com`, so the skill can download `index.json`:
+
+- **Claude:** in Settings → Capabilities, turn on **Allow network egress**. Set **Domain allowlist** to **None**, and add `collinmurch.com` under **Additional allowed domains**. That's the most restrictive setting that still works.
+- **ChatGPT:** in Settings → Data controls, turn on **Work network access**.
+
+Re-upload the skill whenever it changes. Recipes don't need a re-upload, since the skill always reads the latest index.
 
 ## Working locally
 

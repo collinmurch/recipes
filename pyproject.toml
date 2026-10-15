@@ -6,7 +6,7 @@ requires-python = ">=3.10"
 dependencies = ["pyyaml>=6"]
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.13", "ty>=0.0.1a20"]
+dev = ["jsonschema>=4.23", "pytest>=8", "ruff>=0.13", "ty>=0.0.1a20"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from fractions import Fraction
 
-from .collection import amounts_of
+from .collection import amounts_of, ingredient_line
 from .units import Amount, describe, total
 from .vocab import Vocab, humanize, normalize
 
@@ -77,9 +77,7 @@ def recipe(r: dict, servings: float | None = None) -> str:
             out += [f"**{group['section']}**", ""]
         for item in group["items"]:
             amount = describe(a.scaled(scale) for a in amounts_of(item))
-            extra = ", ".join(x for x in (item["note"], item["optional"] and "optional") if x)
-            line = " ".join(x for x in (amount, item["text"]) if x)
-            out.append(f"- {line}" + (f" ({extra})" if extra else ""))
+            out.append(f"- {ingredient_line(item, amount)}")
         out.append("")
     if r["cookware"]:
         out += ["## Cookware", "", ", ".join(r["cookware"]), ""]
@@ -89,21 +87,8 @@ def recipe(r: dict, servings: float | None = None) -> str:
         if section["name"]:
             out += [f"### {section['name']}", ""]
         for item in section["content"]:
-            out += [f"> {item['text']}" if item["type"] == "note" else f"{item['number']}. {step_text(item)}", ""]
+            out += [f"> {item['text']}" if item["type"] == "note" else f"{item['number']}. {item['text']}", ""]
     return "\n".join(out).rstrip() + "\n"
-
-
-def step_text(step: dict) -> str:
-    """A step's words as they read on the page."""
-    parts = []
-    for token in step["tokens"]:
-        if token["type"] == "text":
-            parts.append(token["value"])
-        elif token["type"] == "timer":
-            parts.append(token["amount"])
-        else:
-            parts.append(token["text"])
-    return "".join(parts).strip()
 
 
 @dataclass

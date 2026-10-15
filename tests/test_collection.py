@@ -1,6 +1,10 @@
+import urllib.error
+import urllib.request
+from email.message import Message
+
 import pytest
 
-from cookbook.collection import compile_plan, compile_recipe, load_repo, slugify
+from cookbook.collection import compile_plan, compile_recipe, download, ingredient_line, load_repo, slugify
 from cookbook.vocab import Vocab
 
 VOCAB = Vocab.parse("""produce:
@@ -229,3 +233,45 @@ def test_load_repo_flags_vocab_problems(make_repo):
 
 def test_load_repo_reports_unreadable_vocab(make_repo):
     assert load_repo(make_repo({}, "produce: [\n"))[2][0].path == "vocab.yaml"
+
+
+def test_ingredient_items_carry_a_display_line():
+    record, _ = compile(recipe(body="Add @lime{1}(juiced) and @?scallion{2}."))
+    assert [i["line"] for i in record["ingredients"][0]["items"]] == ["1 lime (juiced)", "2 scallion (optional)"]
+
+
+def test_an_ingredient_line_can_show_a_scaled_amount():
+    item = compile(recipe())[0]["ingredients"][0]["items"][0]
+    assert ingredient_line(item, "2 kg") == "2 kg pork shoulder"
+
+
+def test_steps_carry_their_prose():
+    step = compile(recipe(body="Rest @salt{1%tsp} in a #pot{} ~{5%minutes}."))[0]["sections"][0]["content"][0]
+    assert step["text"] == "Rest salt in a pot 5 minutes."
+
+
+def failing_urlopen(error):
+    def urlopen(*_, **__):
+        raise error
+
+    return urlopen
+
+
+def test_a_missing_index_reports_the_status(monkeypatch):
+    error = urllib.error.HTTPError("https://x/index.json", 404, "Not Found", Message(), None)
+    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(error))
+    with pytest.raises(RuntimeError, match=r"HTTP 404$"):
+        download("https://x/index.json")
+
+
+def test_a_blocked_request_points_to_setup(monkeypatch):
+    error = urllib.error.HTTPError("https://x/index.json", 403, "Forbidden", Message(), None)
+    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(error))
+    with pytest.raises(RuntimeError, match="HTTP 403; in a chat app, network access may be off"):
+        download("https://x/index.json")
+
+
+def test_an_unreachable_host_points_to_setup(monkeypatch):
+    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(urllib.error.URLError("no route to host")))
+    with pytest.raises(RuntimeError, match="no route to host; in a chat app"):
+        download("https://x/index.json")

@@ -16,7 +16,7 @@ In the repo, use `uv run` in place of `python3`. Anywhere PyYAML is missing, `uv
 ## Where it reads from
 
 - **Inside a checkout of the recipes repo** (it has `vocab.yaml`), it reads the files directly and can write.
-- **Anywhere else**, such as a claude.ai chat, it downloads the published index from `https://collinmurch.com/recipes/index.json` and can only read and validate. If the download fails, network access to `collinmurch.com` is probably off: ask the user to allow that domain in their settings.
+- **Anywhere else**, such as a claude.ai or ChatGPT chat, it downloads the published index from `https://collinmurch.com/recipes/index.json` and can only read and validate. If the download fails, the app's network access is probably off; walk the user through [Setup in chat apps](#setup-in-chat-apps).
 
 `--source <repo folder | index.json | URL>` overrides this.
 
@@ -34,8 +34,18 @@ In the repo, use `uv run` in place of `python3`. Anywhere PyYAML is missing, `uv
 | `vocab alias <name> <alias…>` | Repo only |
 | `plan <name[:servings]>…` | Repo only. Start or add to `plans/<monday>.md`. `--start <date>`, `--name <word>` for a one-off like a dinner party |
 | `cooked <name>` | Repo only. Mark a planned meal cooked, or log an unplanned one. `--date`, `--plan` |
+| `export <name\|file…>` / `export --all` | Print recipes as schema.org Recipe JSON-LD |
 
 `find`, `show`, and `grocery` accept `--json`.
+
+## Recipes as data
+
+When someone wants a recipe in another app's format, start from data instead of reformatting prose by hand:
+
+- `export` gives schema.org Recipe JSON-LD, the standard that recipe apps such as Mela and Paprika import.
+- `show <name> --json` gives the full index record. [references/index.schema.json](references/index.schema.json) describes every field. `line` (an ingredient line) and `text` (a step) are ready to display, and `amounts` hold numbers for scaling.
+
+Map from those fields; don't invent any.
 
 ## Planning meals
 
@@ -66,3 +76,10 @@ Without the repo (a claude.ai chat), validate against the published vocab. Then 
 ## Finishing a session in the repo
 
 Run `validate` with no files to check the whole collection. Make one commit for the session's work, with a plain message like `Add carnitas; plan week of 2026-10-12`, and push to `main`. CI re-runs the same checks and then rebuilds the site.
+
+## Setup in chat apps
+
+Chat apps block the internet by default, and the skill needs `collinmurch.com` to read the index.
+
+- **Claude:** in Settings → Capabilities, turn on **Allow network egress**. Set **Domain allowlist** to **None**, and add `collinmurch.com` under **Additional allowed domains**. That's the most restrictive setting that still works.
+- **ChatGPT:** in Settings → Data controls, turn on **Work network access**.

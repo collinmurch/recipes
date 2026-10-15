@@ -7,6 +7,7 @@ import json
 import os
 import re
 import subprocess
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ SCHEMA = 1
 """Version of the index format. The skill refuses to validate against any other."""
 
 DEFAULT_SOURCE = "https://collinmurch.com/recipes/index.json"
+NETWORK_HINT = "; in a chat app, network access may be off (see Setup in chat apps in SKILL.md)"
 
 COURSES = ("breakfast", "main", "side", "sauce", "snack", "dessert", "drink")
 LEFTOVERS = ("great", "good", "poor")
@@ -159,18 +161,17 @@ def compile_recipe(path: str, text: str, vocab: Vocab, draft: bool = False) -> t
                     tokens.append({"type": "timer", "text": token.name, "amount": str(token.amount)})
                 else:
                     tokens.append(_ingredient(token, vocab, groups, proteins, report))
-            content.append({"type": "step", "number": item.number, "tokens": tokens})
+            content.append({"type": "step", "number": item.number, "text": step_text(tokens), "tokens": tokens})
         items = []
         for group in groups.values():
             amounts = [a for a in total(group.pop("amounts")) if a]
-            items.append(
-                {
-                    **group,
-                    "amount": describe(amounts),
-                    "amounts": [a.to_json() for a in amounts],
-                    "note": "; ".join(group["note"]) or None,
-                }
-            )
+            entry = {
+                **group,
+                "amount": describe(amounts),
+                "amounts": [a.to_json() for a in amounts],
+                "note": "; ".join(group["note"]) or None,
+            }
+            items.append({**entry, "line": ingredient_line(entry)})
         if items:
             ingredients.append({"section": section.name, "items": items})
         sections.append({"name": section.name, "content": content})
@@ -189,6 +190,21 @@ def compile_recipe(path: str, text: str, vocab: Vocab, draft: bool = False) -> t
         "sections": sections,
     }
     return record, problems
+
+
+def ingredient_line(item: dict, amount: str | None = None) -> str:
+    """How an ingredient item reads in a list: "1.5 kg pork shoulder (cut into chunks)".
+    Pass an amount to show a scaled one in place of the item's own."""
+    amount = item["amount"] if amount is None else amount
+    extras = [x for x in (item["note"], "optional" if item["optional"] else None) if x]
+    line = " ".join(x for x in (amount, item["text"]) if x)
+    return f"{line} ({', '.join(extras)})" if extras else line
+
+
+def step_text(tokens: list[dict]) -> str:
+    """A step's prose as it reads on the page, from its tokens."""
+    shown = {"text": "value", "timer": "amount", "ingredient": "text", "cookware": "text"}
+    return "".join(token[shown[token["type"]]] for token in tokens).strip()
 
 
 def _ingredient(token: Ingredient, vocab: Vocab, groups: dict, proteins: set, report) -> dict:
@@ -508,8 +524,11 @@ def download(url: str) -> str:
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.read().decode()
+    except urllib.error.HTTPError as e:
+        hint = "" if e.code == 404 else NETWORK_HINT
+        raise RuntimeError(f"could not download {url}: HTTP {e.code}{hint}") from None
     except OSError as e:
-        raise RuntimeError(f"could not download {url}: {e}") from None
+        raise RuntimeError(f"could not download {url}: {getattr(e, 'reason', e)}{NETWORK_HINT}") from None
 
 
 def amounts_of(item: dict) -> list[Amount]:
