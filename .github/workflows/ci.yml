@@ -2,6 +2,7 @@ name: ci
 
 on:
   push:
+    branches-ignore: [bundle]
   pull_request:
 
 permissions:
@@ -28,7 +29,7 @@ jobs:
         with:
           name: site
           path: dist/site
-          retention-days: 90
+          retention-days: 1
       - uses: actions/upload-artifact@v4
         with:
           name: recipes-skill
@@ -42,6 +43,22 @@ jobs:
       group: publish
       cancel-in-progress: true
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bundle
+          ssh-key: ${{ secrets.BUNDLE_DEPLOY_KEY }}
+      - run: git rm -rq --ignore-unmatch .
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+      - id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Bundle from ${{ github.sha }}"
+          git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Ask the site to rebuild
         env:
           GH_TOKEN: ${{ secrets.SITE_TOKEN }}
@@ -53,5 +70,4 @@ jobs:
           gh api repos/collinmurch/collinmurch.github.io/dispatches \
             -f event_type=recipes-updated \
             -f "client_payload[repository]=${{ github.repository }}" \
-            -f "client_payload[sha]=${{ github.sha }}" \
-            -f "client_payload[run_id]=${{ github.run_id }}"
+            -f "client_payload[sha]=${{ steps.commit.outputs.sha }}"
