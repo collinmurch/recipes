@@ -2,7 +2,6 @@ name: ci
 
 on:
   push:
-    branches-ignore: [bundle]
   pull_request:
 
 permissions:
@@ -41,33 +40,48 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: publish
-      cancel-in-progress: true
+      cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: bundle
-          ssh-key: ${{ secrets.BUNDLE_DEPLOY_KEY }}
-      - run: git rm -rq --ignore-unmatch .
       - uses: actions/download-artifact@v4
         with:
           name: site
-      - id: commit
+          path: bundle
+      - uses: actions/checkout@v4
+        with:
+          repository: collinmurch/collinmurch.github.io
+          ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
+          path: site
+      # Commits the bundle to the site's recipes-data/, and that push deploys the
+      # site. Runs can finish out of order, so a run skips when the site already
+      # has this commit's bundle or a newer one. If the site's main moved on, the
+      # push is retried on top of the new tip.
+      - name: Commit the bundle to the site
+        working-directory: site
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet || git commit -m "Bundle from ${{ github.sha }}"
-          git push
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Ask the site to rebuild
-        env:
-          GH_TOKEN: ${{ secrets.SITE_TOKEN }}
-        run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::warning::SITE_TOKEN is not set, so the site was not asked to rebuild"
-            exit 0
-          fi
-          gh api repos/collinmurch/collinmurch.github.io/dispatches \
-            -f event_type=recipes-updated \
-            -f "client_payload[repository]=${{ github.repository }}" \
-            -f "client_payload[sha]=${{ steps.commit.outputs.sha }}"
+          for attempt in 1 2 3 4 5; do
+            published=$(jq -r '.commit // empty' recipes-data/index.json 2>/dev/null || true)
+            if [ -n "$published" ]; then
+              status=$(gh api "repos/${{ github.repository }}/compare/${{ github.sha }}...$published" --jq .status) || status=unknown
+              if [ "$status" = identical ] || [ "$status" = ahead ]; then
+                echo "The site already has the bundle from $published"
+                exit 0
+              fi
+            fi
+            rm -rf recipes-data
+            cp -R ../bundle recipes-data
+            git add -A recipes-data
+            if git diff --cached --quiet; then
+              echo "The bundle is unchanged"
+              exit 0
+            fi
+            git commit -qm "Update recipes to ${{ github.repository }}@${GITHUB_SHA::7}"
+            if git push -q origin HEAD:main; then exit 0; fi
+            git fetch -q origin main
+            git reset -q --hard origin/main
+          done
+          echo "::error::Could not push the bundle to the site"
+          exit 1

@@ -93,7 +93,7 @@ sources/*.cook  the raw files, for "view source" links
 
 [`index.schema.json`](.agents/skills/recipes/references/index.schema.json) documents every field of `index.json`, and the tests hold every build to it. Display strings come ready to use: each ingredient's `line` ("1.5 kg pork shoulder (cubed)") and each step's `text`. So the site, a Mela converter, or a chat can show recipes without re-deriving anything, and the structured fields are there for scaling and highlighting. The JSON-LD leaves out the page `url`, which the site adds.
 
-On every push to `main` that passes, CI commits the bundle to the `bundle` branch. It then sends the site a `recipes-updated` dispatch with that commit's SHA, and the site checks it out, renders, and deploys. Builds the site starts itself use the tip of `bundle`, so a blog post never deploys without recipes. Only CI can write to `bundle`: a ruleset blocks every push except those made with the `BUNDLE_DEPLOY_KEY` deploy key, which only the publish job holds. The site publishes:
+On every push to `main` that passes, CI commits the bundle to the site repo's `recipes-data/` folder, and that push deploys the site. The site's own builds render whatever bundle is committed there, so a blog post never deploys without recipes. If runs finish out of order, an older run sees that the site already has a newer bundle and skips. The site publishes:
 
 - `/recipes`: every recipe, filterable by course, cuisine, and protein
 - `/recipes/<name>`: a recipe page, plus its raw `.cook` source
@@ -141,4 +141,4 @@ The conformance tests compare the parser with the [`cook` CLI](https://cooklang.
 
 ## Cost
 
-Free. GitHub Actions and Pages are free for public repos, and both repos are public. This repo stores one fine-grained token, `SITE_TOKEN`, which can write the site repo's contents, which is what sending it a dispatch requires. The site reads `bundle` without a token.
+Free. GitHub Actions and Pages are free for public repos, and both repos are public. The only credential is `SITE_DEPLOY_KEY`, a deploy key on the site repo with write access, stored as a secret here. It never expires.
