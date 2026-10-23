@@ -5,7 +5,7 @@
   "description": "Everything in the recipes repo, parsed and resolved: what `recipes build` writes to index.json, what the site renders, and what the skill reads when it has no repo. Display strings (amount, line, text) are ready to show as-is; the structured fields beside them are for scaling, linking, and highlighting.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "commit", "recipes", "plans", "vocab"],
+  "required": ["schema", "commit", "recipes", "plans", "vocab", "units"],
   "properties": {
     "schema": {
       "description": "Format version. It changes only when a field is removed or changes meaning; new fields keep the number.",
@@ -29,6 +29,19 @@
       "description": "The ingredient dictionary, sections in store order.",
       "type": "array",
       "items": { "$ref": "#/$defs/vocabSection" }
+    },
+    "units": {
+      "description": "Every canonical unit an amount can name, for showing scaled amounts.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["plural", "metric"],
+        "properties": {
+          "plural": { "description": "The unit's name for more than one, like cups; null when it doesn't change, like tsp.", "type": ["string", "null"] },
+          "metric": { "description": "Metric amounts read as decimals; the rest read as kitchen fractions like 1 1/2.", "type": "boolean" }
+        }
+      }
     }
   },
   "$defs": {

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from . import cooklang, yamlio
 from .cooklang import Cookware, Ingredient, Note, Text, Timer
-from .units import Amount, canonical_unit, describe, total
+from .units import Amount, canonical_unit, describe, total, units_json
 from .vocab import Vocab, normalize, words
 
 SCHEMA = 1
@@ -395,6 +395,7 @@ def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str 
         ],
         "plans": sorted(plans, key=lambda p: p["id"]),
         "vocab": vocab.to_json(),
+        "units": units_json(),
     }
 
 

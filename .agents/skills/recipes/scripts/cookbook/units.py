@@ -82,6 +82,13 @@ def canonical_unit(unit: str | None) -> str | None:
     return _SPELLINGS.get(key)
 
 
+def units_json() -> dict:
+    """Every canonical unit with its plural and whether it's metric, so a
+    reader can scale and show amounts without its own table."""
+    plurals = {name: unit.plural for name, unit in MEASURED.items()} | COUNTED
+    return {name: {"plural": plural, "metric": name in METRIC} for name, plural in plurals.items()}
+
+
 def unit_kind(unit: str | None) -> str:
     """ "mass", "volume", "time", or "count"."""
     return MEASURED[unit].kind if unit in MEASURED else "count"

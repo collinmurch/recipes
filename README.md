@@ -24,7 +24,7 @@ Its script reads the repo when run inside a checkout. Anywhere else, it reads th
 
 When a push to `main` passes its checks, CI builds a bundle and commits it to the site repo's `recipes-data/`. That push deploys [collinmurch.github.io](https://github.com/collinmurch/collinmurch.github.io). The bundle is:
 
-- `index.json`: every recipe, plan, and the vocab, described by [`index.schema.json`](.agents/skills/recipes/references/index.schema.json)
+- `index.json`: every recipe, plan, the vocab, and the units amounts use, described by [`index.schema.json`](.agents/skills/recipes/references/index.schema.json)
 - `jsonld/*.json`: schema.org Recipe JSON-LD per recipe
 - `sources/*.cook`: the raw files
 

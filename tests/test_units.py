@@ -1,6 +1,6 @@
 from fractions import Fraction as F
 
-from cookbook.units import Amount, Quantity, canonical_unit, format_number, total, unit_kind
+from cookbook.units import Amount, Quantity, canonical_unit, format_number, total, unit_kind, units_json
 
 
 def amount(text: str) -> Amount:
@@ -179,3 +179,12 @@ def test_total_marks_an_ingredient_with_no_amounts():
 def test_total_stays_fixed_only_when_every_part_is():
     assert total([amount("=1%g"), amount("=1%g")]) == [Amount(Quantity(F(2), fixed=True), "g")]
     assert total([amount("=1%g"), amount("1%g")]) == [Amount(Quantity(F(2)), "g")]
+
+
+def test_the_units_table_shows_amounts_as_they_format():
+    units = units_json()
+    assert units["cup"] == {"plural": "cups", "metric": False}
+    assert units["tsp"] == {"plural": None, "metric": False}
+    assert units["g"]["metric"]
+    for name, unit in units.items():
+        assert str(amount(f"2%{name}")) == f"2 {unit['plural'] or name}"
