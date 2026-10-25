@@ -8,14 +8,17 @@ produce:
   cherry-tomato: {}
   cilantro: {aka: [coriander, fresh cilantro]}
   cucumber: {}
+  fingerling-potato: {}
   garlic: {}
   ginger: {aka: [fresh ginger, ginger root]}
   green-bell-pepper: {}
+  jalapeno: {}
   lemon: {}
   lime: {}
   mushroom: {aka: [baby bella, cremini, mixed mushrooms]}
   orange: {}
   parsley: {aka: [flat-leaf parsley, fresh parsley, italian parsley]}
+  peach: {}
   red-bell-pepper: {}
   red-onion: {}
   rosemary: {aka: [fresh rosemary]}
@@ -31,6 +34,7 @@ meat:
   beef-tenderloin: {aka: [beef tenderloin steak, filet mignon], protein: beef}
   chicken-breast: {aka: [boneless skinless chicken breast], protein: chicken}
   chicken-thigh: {protein: chicken}
+  pork-chop: {protein: pork}
   pork-shoulder: {aka: [boston butt, pork butt], protein: pork}
 
 seafood: {}
@@ -84,6 +88,7 @@ pantry:
   dijon-mustard: {aka: [dijon]}
   dried-oregano: {aka: [oregano]}
   dried-thyme: {}
+  garlic-powder: {}
   ground-turmeric: {aka: [turmeric]}
   honey: {}
   neutral-oil: {aka: [canola oil, grapeseed oil, vegetable oil]}
