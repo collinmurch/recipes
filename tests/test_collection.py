@@ -1,11 +1,6 @@
-import gzip
-import urllib.error
-import urllib.request
-from email.message import Message
-
 import pytest
 
-from cookbook.collection import compile_plan, compile_recipe, download, ingredient_line, load_repo, slugify
+from cookbook.collection import compile_plan, compile_recipe, ingredient_line, load_repo, slugify
 from cookbook.vocab import Vocab
 
 VOCAB = Vocab.parse("""produce:
@@ -261,61 +256,3 @@ def test_an_ingredient_line_can_show_a_scaled_amount():
 def test_steps_carry_their_prose():
     step = compile(recipe(body="Rest @salt{1%tsp} in a #pot{} ~{5%minutes}."))[0]["sections"][0]["content"][0]
     assert step["text"] == "Rest salt in a pot 5 minutes."
-
-
-def failing_urlopen(error):
-    def urlopen(*_, **__):
-        raise error
-
-    return urlopen
-
-
-def test_a_missing_index_reports_the_status(monkeypatch):
-    error = urllib.error.HTTPError("https://x/index.json", 404, "Not Found", Message(), None)
-    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(error))
-    with pytest.raises(RuntimeError, match=r"HTTP 404$"):
-        download("https://x/index.json")
-
-
-def test_a_blocked_request_points_to_setup(monkeypatch):
-    error = urllib.error.HTTPError("https://x/index.json", 403, "Forbidden", Message(), None)
-    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(error))
-    with pytest.raises(RuntimeError, match="HTTP 403; in a chat app, network access may be off"):
-        download("https://x/index.json")
-
-
-def test_an_unreachable_host_points_to_setup(monkeypatch):
-    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen(urllib.error.URLError("no route to host")))
-    with pytest.raises(RuntimeError, match="no route to host; in a chat app"):
-        download("https://x/index.json")
-
-
-class FakeResponse:
-    def __init__(self, body: bytes, encoding: str | None = None):
-        self.body = body
-        self.headers = {"Content-Encoding": encoding} if encoding else {}
-
-    def read(self) -> bytes:
-        return self.body
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_):
-        return False
-
-
-def test_download_asks_for_gzip_and_unpacks_it(monkeypatch):
-    seen = {}
-
-    def urlopen(request, timeout):
-        seen["encoding"] = request.get_header("Accept-encoding")
-        return FakeResponse(gzip.compress(b'{"schema": 1}'), "gzip")
-
-    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
-    assert (download("https://x/index.json"), seen["encoding"]) == ('{"schema": 1}', "gzip")
-
-
-def test_download_reads_a_plain_response(monkeypatch):
-    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: FakeResponse(b"{}"))
-    assert download("https://x/index.json") == "{}"

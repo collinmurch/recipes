@@ -1,15 +1,11 @@
-"""The collection: compiling files into index records, checking them, and
-loading everything from a repo checkout or from the published index."""
+"""The collection: compiling the repo's files into index records and checking them."""
 
 from __future__ import annotations
 
-import gzip
 import json
 import os
 import re
 import subprocess
-import urllib.error
-import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -21,10 +17,7 @@ from .units import Amount, canonical_unit, describe, total, units_json
 from .vocab import Vocab, normalize, words
 
 SCHEMA = 1
-"""Version of the index format. The skill refuses to validate against any other."""
-
-DEFAULT_SOURCE = "https://collinmurch.com/recipes/index.json"
-NETWORK_HINT = "; in a chat app, network access may be off (see Setup in chat apps in SKILL.md)"
+"""Version of the index format. It changes only when a field is removed or changes meaning."""
 
 COURSES = ("breakfast", "main", "side", "sauce", "snack", "dessert", "drink")
 LEFTOVERS = ("great", "good", "poor")
@@ -429,30 +422,20 @@ def _commit(root: Path) -> str | None:
 
 
 class Collection:
-    """Everything we've saved, read from a repo checkout or a published index."""
+    """Everything in a checkout, compiled and checked."""
 
-    def __init__(
-        self,
-        index: dict,
-        vocab: Vocab,
-        root: Path | None = None,
-        origin: str = "",
-        problems: list[Problem] | None = None,
-    ):
-        self.index = index
-        self.vocab = vocab
+    def __init__(self, root: Path):
         self.root = root
-        self.origin = origin
-        self.problems = problems or []
-        self.by_slug = {r["slug"]: r for r in index["recipes"]}
+        self.index, self.vocab, self.problems = load_repo(root)
+        self.by_slug = {r["slug"]: r for r in self.index["recipes"]}
 
-    @property
-    def mode(self) -> str:
-        return "repo" if self.root else "index"
-
-    @property
-    def current(self) -> bool:
-        return self.index.get("schema") == SCHEMA
+    @classmethod
+    def find(cls, cwd: Path | None = None) -> Collection:
+        """The checkout around cwd, or else the one holding this code."""
+        root = find_repo(cwd or Path.cwd()) or find_repo(Path(__file__).parent)
+        if root is None:
+            raise RuntimeError("no recipes repo here; run this inside a checkout of collinmurch/recipes")
+        return cls(root)
 
     @property
     def recipes(self) -> list[dict]:
@@ -471,14 +454,12 @@ class Collection:
     def relative(self, path: Path | str) -> str:
         """A path relative to the repo when it's inside it, for messages."""
         path = Path(path).resolve()
-        if self.root and path.is_relative_to(self.root):
-            return path.relative_to(self.root).as_posix()
-        return str(path)
+        return path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else str(path)
 
     def filed(self, path: Path) -> str | None:
         """The repo path ("recipes/x.cook") if this file lives in the collection."""
         path = Path(path).resolve()
-        if not self.root or not path.is_relative_to(self.root):
+        if not path.is_relative_to(self.root):
             return None
         relative = path.relative_to(self.root).as_posix()
         return relative if relative.split("/")[0] in (*DIRS.values(), PLANS) else None
@@ -508,52 +489,6 @@ class Collection:
                 missing = [p for p in record.get("pairs", []) if p not in known]
                 problems += [Problem(record["path"], f'pairs: no recipe named "{p}"') for p in missing]
         return compiled
-
-
-def open_collection(source: str | None = None, cwd: Path | None = None) -> Collection:
-    """Opens, in order: an explicit source (a repo folder, an index.json or its
-    folder, or a URL), the repo around cwd, the repo holding this code, or the
-    published index."""
-    source = source if source is not None else os.environ.get("RECIPES_SOURCE") or None
-    cwd = cwd or Path.cwd()
-    if source and re.match(r"https?://", source):
-        return _from_index(json.loads(download(source)), source)
-    if source:
-        path = (cwd / source).resolve()
-        if (path / "vocab.yaml").is_file():
-            return _from_repo(path)
-        file = path / "index.json" if path.is_dir() else path
-        return _from_index(json.loads(file.read_text()), str(file))
-    root = find_repo(cwd) or find_repo(Path(__file__).parent)
-    if root:
-        return _from_repo(root)
-    return _from_index(json.loads(download(DEFAULT_SOURCE)), DEFAULT_SOURCE)
-
-
-def _from_repo(root: Path) -> Collection:
-    index, vocab, problems = load_repo(root)
-    return Collection(index, vocab, root=root, origin=str(root), problems=problems)
-
-
-def _from_index(index: dict, origin: str) -> Collection:
-    return Collection(index, Vocab.from_json(index.get("vocab", [])), origin=origin)
-
-
-def download(url: str) -> str:
-    """Fetches a URL, gzipped when the server allows. urllib honors the proxy
-    settings sandboxes use."""
-    request = urllib.request.Request(url, headers={"User-Agent": "recipes-skill", "Accept-Encoding": "gzip"})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            body = response.read()
-            if response.headers.get("Content-Encoding") == "gzip":
-                body = gzip.decompress(body)
-            return body.decode()
-    except urllib.error.HTTPError as e:
-        hint = "" if e.code == 404 else NETWORK_HINT
-        raise RuntimeError(f"could not download {url}: HTTP {e.code}{hint}") from None
-    except OSError as e:
-        raise RuntimeError(f"could not download {url}: {getattr(e, 'reason', e)}{NETWORK_HINT}") from None
 
 
 def amounts_of(item: dict) -> list[Amount]:

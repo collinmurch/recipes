@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://collinmurch.com/recipes/index.schema.json",
   "title": "Recipe index",
-  "description": "Everything in the recipes repo, parsed and resolved: what `recipes build` writes to index.json, what the site renders, and what the skill reads when it has no repo. Display strings (amount, line, text) are ready to show as-is; the structured fields beside them are for scaling, linking, and highlighting.",
+  "description": "Everything in the recipes repo, parsed and resolved: what `recipes.py build` writes to index.json, and what the site renders. Display strings (amount, line, text) are ready to show as-is; the structured fields beside them are for scaling, linking, and highlighting.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "commit", "recipes", "plans", "vocab", "units"],

@@ -195,7 +195,3 @@ def test_json_marks_staples(vocab):
         ("aisles", False),
         ("pantry", True),
     ]
-
-
-def test_json_round_trips(vocab):
-    assert Vocab.from_json(vocab.to_json()).to_json() == vocab.to_json()

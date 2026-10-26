@@ -108,10 +108,6 @@ def test_find_filters_by_course(cli, both):
     assert slugs(cli(both, "find", "--course", "sauce", "--json")) == ["salsa-verde"]
 
 
-def test_find_accepts_global_options_first(cli, both):
-    assert slugs(cli(both, "--json", "find", "verde")) == ["salsa-verde"]
-
-
 def test_find_prints_a_table(cli, both):
     assert "| tacos | Tacos | main |" in cli(both, "find").out
 
@@ -260,51 +256,16 @@ def test_grocery_from_a_plan_skips_cooked_meals(cli, both):
     assert "cilantro — 1/2 bunch" in out
 
 
-def test_build_writes_the_index_and_sources(cli, repo):
+def test_build_writes_the_index(cli, repo):
     assert cli(repo, "build", "out").code == 0
     index = json.loads((repo / "out/index.json").read_text())
     assert (index["schema"], len(index["recipes"]), len(index["vocab"])) == (1, 1, 3)
-    assert (repo / "out/sources/tacos.cook").read_text() == TACOS
 
 
 def test_build_refuses_a_broken_collection(cli, make_repo):
     root = make_repo({"recipes/tacos.cook": TACOS.replace("limes", "lemons")})
     assert cli(root, "build", "out").code == 1
     assert not (root / "out/index.json").exists()
-
-
-@pytest.fixture
-def index(cli, repo):
-    cli(repo, "build", "out")
-    return repo / "out/index.json"
-
-
-def test_index_mode_reads_a_built_index(cli, index, tmp_path):
-    assert cli(tmp_path, "show", "tacos", "--source", str(index)).out.startswith("# Tacos")
-
-
-def test_index_mode_accepts_the_bundle_folder(cli, index, tmp_path):
-    assert "tacos" in cli(tmp_path, "--source", str(index.parent), "find").out
-
-
-def test_index_mode_scales_like_the_repo(cli, index, repo, tmp_path):
-    assert cli(tmp_path, "grocery", "tacos:6", "--source", str(index)).out == cli(repo, "grocery", "tacos:6").out
-
-
-def test_index_mode_validates_drafts_against_the_published_vocab(cli, index, tmp_path):
-    (tmp_path / "draft.cook").write_text(SALSA)
-    assert cli(tmp_path, "validate", "draft.cook", "--source", str(index)).code == 0
-
-
-def test_index_mode_refuses_writes(cli, index, tmp_path):
-    assert "needs a checkout" in cli(tmp_path, "vocab", "add", "x", "--section", "produce", "--source", str(index)).err
-
-
-def test_index_mode_refuses_a_newer_format(cli, index, tmp_path):
-    data = json.loads(index.read_text())
-    index.write_text(json.dumps({**data, "schema": 99}))
-    (tmp_path / "draft.cook").write_text(SALSA)
-    assert cli(tmp_path, "validate", "draft.cook", "--source", str(index)).code == 2
 
 
 def test_vocab_fixture_is_canonical():
@@ -347,10 +308,8 @@ def test_build_writes_json_ld_matching_export(cli, repo):
 def test_build_replaces_stale_files(cli, repo):
     cli(repo, "build", "out")
     (repo / "out/jsonld/gone.json").write_text("{}")
-    (repo / "out/sources/gone.cook").write_text("")
     cli(repo, "build", "out")
     assert not (repo / "out/jsonld/gone.json").exists()
-    assert not (repo / "out/sources/gone.cook").exists()
 
 
 def test_show_json_has_ready_to_show_text(cli, repo):

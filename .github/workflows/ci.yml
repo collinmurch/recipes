@@ -22,17 +22,12 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run ty check
       - run: uv run pytest
-      - run: uv run .agents/skills/recipes/scripts/recipes.py build dist/site
-      - run: mkdir -p dist/skill && cp -R .agents/skills/recipes dist/skill/
+      - run: uv run scripts/recipes.py build dist/site
       - uses: actions/upload-artifact@v4
         with:
           name: site
           path: dist/site
           retention-days: 1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: recipes-skill
-          path: dist/skill
 
   publish:
     needs: check

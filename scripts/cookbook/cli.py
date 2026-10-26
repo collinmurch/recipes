@@ -15,12 +15,10 @@ from .collection import (
     COURSES,
     DIRS,
     PLANS,
-    SCHEMA,
     Collection,
     Problem,
     is_date,
     is_slug,
-    open_collection,
     slugify,
 )
 from .vocab import humanize
@@ -39,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 0
     try:
-        args.run(open_collection(args.source), args)
+        args.run(Collection.find(), args)
         return 0
     except Exit as e:
         if str(e):
@@ -51,28 +49,17 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    # Global options work before or after the command. Each parser needs its own
-    # copies, and the subcommands' copies set a value only when given.
-    def add_globals(p, source, as_json):
-        p.add_argument("--source", default=source, help="a repo folder, a built index.json (or its folder), or a URL")
-        p.add_argument("--json", action="store_true", default=as_json, help="print JSON (find, show, grocery)")
-
-    common = argparse.ArgumentParser(add_help=False)
-    add_globals(common, argparse.SUPPRESS, argparse.SUPPRESS)
-    parser = argparse.ArgumentParser(
-        prog="recipes",
-        description="Search, plan, and write our recipes. Reads the repo when run inside it, "
-        "and the published index anywhere else.",
-    )
-    add_globals(parser, None, False)
+    parser = argparse.ArgumentParser(prog="recipes", description="Search, plan, and write our recipes.")
     commands = parser.add_subparsers(title="commands", metavar="<command>")
 
-    def command(name, run, help, **kwargs):
-        sub = commands.add_parser(name, parents=[common], help=help, description=help, **kwargs)
+    def command(name, run, help, as_json=False):
+        sub = commands.add_parser(name, help=help, description=help)
         sub.set_defaults(run=run)
+        if as_json:
+            sub.add_argument("--json", action="store_true", help="print JSON")
         return sub
 
-    find = command("find", cmd_find, "search recipes and drinks")
+    find = command("find", cmd_find, "search recipes and drinks", as_json=True)
     find.add_argument("words", nargs="*", help="words to match in titles, tags, and ingredients")
     find.add_argument("--course", choices=COURSES)
     find.add_argument("--cuisine")
@@ -90,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     find.add_argument("--limit", type=non_negative, default=20, help="most results to show; 0 for all")
 
-    show = command("show", cmd_show, "show recipes, or preview draft files together")
+    show = command("show", cmd_show, "show recipes, or preview draft files together", as_json=True)
     show.add_argument("targets", nargs="+", metavar="name|file")
     show.add_argument("--servings", type=positive)
 
@@ -98,47 +85,47 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("targets", nargs="*", metavar="name|file")
     export.add_argument("--all", action="store_true", help="every recipe and drink, as one @graph")
 
-    grocery = command("grocery", cmd_grocery, "one shopping list for several recipes")
+    grocery = command("grocery", cmd_grocery, "one shopping list for several recipes", as_json=True)
     grocery.add_argument("picks", nargs="*", metavar="name[:servings]")
     grocery.add_argument("--plan", metavar="ID", help="use a plan's uncooked meals")
 
     validate = command("validate", cmd_validate, "check drafts, or the whole repo")
     validate.add_argument("files", nargs="*")
 
-    save = command("save", cmd_save, "check drafts together and file them (repo only)")
+    save = command("save", cmd_save, "check drafts together and file them")
     save.add_argument("files", nargs="+")
     save.add_argument("--replace", action="store_true", help="overwrite a recipe with the same name")
 
     vocab = command("vocab", None, "look up or edit ingredient names")
     actions = vocab.add_subparsers(title="actions", metavar="<action>", required=True)
-    vfind = actions.add_parser("find", parents=[common], help="look up names, with close matches")
+    vfind = actions.add_parser("find", help="look up names, with close matches")
     vfind.add_argument("names", nargs="+")
     vfind.set_defaults(run=cmd_vocab_find)
-    vlist = actions.add_parser("list", parents=[common], help="list the vocab")
+    vlist = actions.add_parser("list", help="list the vocab")
     vlist.add_argument("section", nargs="?")
     vlist.set_defaults(run=cmd_vocab_list)
-    vadd = actions.add_parser("add", parents=[common], help="add ingredients (repo only)")
+    vadd = actions.add_parser("add", help="add ingredients")
     vadd.add_argument("names", nargs="+")
     vadd.add_argument("--section", required=True)
     vadd.add_argument("--aka", action="append", default=[], metavar="ALIAS", help="repeatable")
     vadd.add_argument("--protein")
     vadd.set_defaults(run=cmd_vocab_add)
-    valias = actions.add_parser("alias", parents=[common], help="add other names for an entry (repo only)")
+    valias = actions.add_parser("alias", help="add other names for an entry")
     valias.add_argument("name")
     valias.add_argument("aliases", nargs="+")
     valias.set_defaults(run=cmd_vocab_alias)
 
-    plan = command("plan", cmd_plan, "start or add to a plan (repo only)")
+    plan = command("plan", cmd_plan, "start or add to a plan")
     plan.add_argument("picks", nargs="*", metavar="name[:servings]")
     plan.add_argument("--start", type=iso_date, help="the plan's first day (default: this Monday)")
     plan.add_argument("--name", type=slug, help="for a one-off plan, like dinner-party")
 
-    cooked = command("cooked", cmd_cooked, "mark a meal cooked (repo only)")
+    cooked = command("cooked", cmd_cooked, "mark a meal cooked")
     cooked.add_argument("name")
     cooked.add_argument("--date", type=iso_date, help="default: today")
     cooked.add_argument("--plan", metavar="ID")
 
-    build = command("build", cmd_build, "check everything and write the site bundle (repo only)")
+    build = command("build", cmd_build, "check everything and write the site bundle")
     build.add_argument("dir", nargs="?", default="dist")
     return parser
 
@@ -176,7 +163,6 @@ def out(text: str = "") -> None:
 
 
 def cmd_find(c: Collection, args) -> None:
-    warn_if_stale(c)
     uses = []
     for written in args.uses:
         entry = c.vocab.lookup(written)
@@ -279,7 +265,6 @@ def cmd_export(c: Collection, args) -> None:
 
 
 def cmd_grocery(c: Collection, args) -> None:
-    warn_if_stale(c)
     if args.plan:
         plan = c.plan(args.plan)
         if not plan:
@@ -296,17 +281,10 @@ def cmd_grocery(c: Collection, args) -> None:
 
 
 def cmd_validate(c: Collection, args) -> None:
-    if c.mode == "index" and not c.current:
-        raise Exit(
-            f"the published index is format {c.index.get('schema')} but this skill is format {SCHEMA}; "
-            "download the latest skill and try again",
-            2,
-        )
     if args.files:
         problems = [p for checked in check_files(c, args.files) for p in checked.problems]
         label = count(len(args.files), "file")
     else:
-        repo_root(c, "validate with no files")
         problems = c.problems
         label = f"{count(len(c.recipes), 'recipe')}, {count(len(c.plans), 'plan')}"
     report(problems, label)
@@ -315,14 +293,13 @@ def cmd_validate(c: Collection, args) -> None:
 
 
 def cmd_save(c: Collection, args) -> None:
-    root = repo_root(c, "save")
     checked = check_files(c, args.files)
     if any("meals" in item.record for item in checked):
         raise Exit("save is for recipes; write plans with plan and cooked")
     problems = [p for item in checked for p in item.problems]
     moves = []
     for item in checked:
-        dest = root / DIRS[item.record["kind"]] / f"{slugify(item.record.get('title', ''))}.cook"
+        dest = c.root / DIRS[item.record["kind"]] / f"{slugify(item.record.get('title', ''))}.cook"
         if dest != item.path.resolve() and dest.exists() and not args.replace:
             problems.append(Problem(item.label, f"{c.relative(dest)} already exists; pass --replace to overwrite it"))
         moves.append((item, dest))
@@ -362,7 +339,6 @@ def cmd_vocab_list(c: Collection, args) -> None:
 
 
 def cmd_vocab_add(c: Collection, args) -> None:
-    repo_root(c, "vocab add")
     if len(args.names) > 1 and args.aka:
         raise Exit("--aka applies to one name at a time")
     for name in args.names:
@@ -372,18 +348,16 @@ def cmd_vocab_add(c: Collection, args) -> None:
 
 
 def cmd_vocab_alias(c: Collection, args) -> None:
-    repo_root(c, "vocab alias")
     target = c.vocab.alias(args.name, args.aliases)
     out(f"{', '.join(args.aliases)} → {target}")
     save_vocab(c)
 
 
 def save_vocab(c: Collection) -> None:
-    (repo_root(c, "editing the vocab") / "vocab.yaml").write_text(c.vocab.stringify())
+    (c.root / "vocab.yaml").write_text(c.vocab.stringify())
 
 
 def cmd_plan(c: Collection, args) -> None:
-    repo_root(c, "plan")
     start = args.start or monday(date.today().isoformat())
     plan_id = f"{start}-{args.name}" if args.name else start
     plan = PlanFile.read(c, plan_id)
@@ -400,7 +374,6 @@ def cmd_plan(c: Collection, args) -> None:
 
 
 def cmd_cooked(c: Collection, args) -> None:
-    repo_root(c, "cooked")
     resolve(c, args.name)
     when = args.date or date.today().isoformat()
     # The given plan, or else the latest plans that had started by then.
@@ -420,19 +393,16 @@ def cmd_cooked(c: Collection, args) -> None:
 
 
 def cmd_build(c: Collection, args) -> None:
-    root = repo_root(c, "build")
     if any(p.level == "error" for p in c.problems):
         report(c.problems, "build")
         raise Exit("not built")
     target = Path(args.dir).resolve()
-    for folder in ("sources", "jsonld"):
-        shutil.rmtree(target / folder, ignore_errors=True)
-        (target / folder).mkdir(parents=True)
+    shutil.rmtree(target / "jsonld", ignore_errors=True)
+    (target / "jsonld").mkdir(parents=True)
     for r in c.recipes:
-        shutil.copyfile(root / r["path"], target / "sources" / f"{r['slug']}.cook")
         write_json(target / "jsonld" / f"{r['slug']}.json", schema_org.recipe(r))
     write_json(target / "index.json", c.index)
-    out(f"wrote {args.dir}/index.json, plus sources/ and jsonld/ for {count(len(c.recipes), 'recipe')}")
+    out(f"wrote {args.dir}/index.json, plus jsonld/ for {count(len(c.recipes), 'recipe')}")
 
 
 def write_json(path: Path, data) -> None:
@@ -505,7 +475,7 @@ class PlanFile:
 
     @classmethod
     def read(cls, c: Collection, plan_id: str) -> PlanFile:
-        path = repo_root(c, "plans") / PLANS / f"{plan_id}.md"
+        path = c.root / PLANS / f"{plan_id}.md"
         if not path.exists():
             return cls(path, {})
         doc = yamlio.frontmatter(path.read_text())
@@ -559,18 +529,3 @@ def count(n: int, noun: str) -> str:
 
 def hint(names: list[str]) -> str:
     return "; did you mean " + ", ".join(f'"{n}"' for n in names) + "?" if names else ""
-
-
-def repo_root(c: Collection, what: str) -> Path:
-    """The repo checkout, for commands that need one."""
-    if c.root is None:
-        raise Exit(f"{what} needs a checkout of the recipes repo; run this from inside it")
-    return c.root
-
-
-def warn_if_stale(c: Collection) -> None:
-    if not c.current:
-        print(
-            f"note: the index is format {c.index.get('schema')}, this skill expects {SCHEMA}; results may be off",
-            file=sys.stderr,
-        )

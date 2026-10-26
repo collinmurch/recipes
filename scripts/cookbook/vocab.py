@@ -115,17 +115,6 @@ class Vocab:
             raise ValueError("vocab must be a map of sections")
         return cls([Section(str(name), dict(items or {})) for name, items in data.items()])
 
-    @classmethod
-    def from_json(cls, sections: list[dict]) -> Vocab:
-        return cls(
-            [
-                Section(
-                    s["name"], {item["name"]: {k: v for k, v in item.items() if k != "name"} for item in s["items"]}
-                )
-                for s in sections
-            ]
-        )
-
     def to_json(self) -> list[dict]:
         return [
             {"name": s.name, "staple": s.staple, "items": [{"name": n, **(e or {})} for n, e in s.items.items()]}

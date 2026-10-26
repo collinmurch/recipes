@@ -1,4 +1,4 @@
-"""The documented index format (references/index.schema.json) matches what builds produce."""
+"""The documented index format (docs/index.schema.json) matches what builds produce."""
 
 import json
 
@@ -8,7 +8,7 @@ from jsonschema import Draft202012Validator
 from conftest import REPO
 from cookbook.collection import load_repo, step_text
 
-SCHEMA = json.loads((REPO / ".agents/skills/recipes/references/index.schema.json").read_text())
+SCHEMA = json.loads((REPO / "docs/index.schema.json").read_text())
 VALIDATOR = Draft202012Validator(SCHEMA)
 
 VOCAB = """produce:

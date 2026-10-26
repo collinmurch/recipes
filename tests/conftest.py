@@ -71,7 +71,6 @@ def repo(make_repo):
 @pytest.fixture
 def cli(monkeypatch, capsys):
     """Runs the CLI in a folder: cli(folder, "find", "--json")."""
-    monkeypatch.delenv("RECIPES_SOURCE", raising=False)
 
     def run(cwd: Path, *args: str) -> Result:
         monkeypatch.chdir(cwd)
