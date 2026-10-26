@@ -95,6 +95,8 @@ class Problem:
     line: int | None = None
     level: str = "error"
     suggestions: list[str] = field(default_factory=list)
+    unknown: str | None = None
+    """The vocab form of an ingredient name the vocab doesn't have."""
 
     def __str__(self) -> str:
         where = f"{self.path}:{self.line}" if self.line else self.path
@@ -220,7 +222,12 @@ def _ingredient(token: Ingredient, vocab: Vocab, groups: dict, proteins: set, re
         else:
             hint = ""
         written_as = "" if normalize(token.name) == token.name else f' (as "{normalize(token.name)}")'
-        report(f'"{token.name}" is not in the vocab{written_as}{hint}', token.line, suggestions=suggestions)
+        report(
+            f'"{token.name}" is not in the vocab{written_as}{hint}',
+            token.line,
+            suggestions=suggestions,
+            unknown=normalize(token.name),
+        )
     elif entry.protein and not token.optional:
         proteins.add(entry.protein)
 
@@ -382,12 +389,14 @@ def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str 
         for meal in plan["meals"]:
             if is_date(meal.get("cooked")):
                 history.setdefault(meal.get("recipe"), []).append(meal["cooked"])
+    links = _pairs_both_ways(recipes)
     return {
         "schema": SCHEMA,
         "commit": commit,
         "recipes": [
             {
                 **r,
+                **({"pairs": links[r["slug"]]} if links.get(r["slug"]) else {}),
                 "last_cooked": max(history.get(r["slug"], []), default=None),
                 "times_cooked": len(history.get(r["slug"], [])),
             }
@@ -397,6 +406,16 @@ def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str 
         "vocab": vocab.to_json(),
         "units": units_json(),
     }
+
+
+def _pairs_both_ways(recipes: list[dict]) -> dict[str, list[str]]:
+    """Each recipe's pairs: its own list, then the recipes that list it."""
+    links = {r["slug"]: list(r.get("pairs", [])) for r in recipes}
+    for r in recipes:
+        for other in r.get("pairs", []):
+            if other in links and other != r["slug"]:
+                links[other].append(r["slug"])
+    return {slug: list(dict.fromkeys(pairs)) for slug, pairs in links.items()}
 
 
 def _commit(root: Path) -> str | None:

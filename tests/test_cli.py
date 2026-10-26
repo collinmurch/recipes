@@ -59,6 +59,23 @@ def test_show_previews_a_draft(cli, repo):
     assert cli(repo, "show", "draft.cook").out.startswith("# Salsa Verde")
 
 
+def test_show_previews_drafts_that_pair_with_each_other(cli, repo):
+    (repo / "a.cook").write_text(SALSA.replace("pairs: [tacos]", "pairs: [pickled-onions]"))
+    (repo / "b.cook").write_text(SALSA.replace("Salsa Verde", "Pickled Onions").replace("[tacos]", "[salsa-verde]"))
+    result = cli(repo, "show", "a.cook", "b.cook", "tacos")
+    assert (result.code, result.err) == (0, "")
+    assert [line for line in result.out.splitlines() if line.startswith("# ")] == [
+        "# Salsa Verde",
+        "# Pickled Onions",
+        "# Tacos",
+    ]
+
+
+def test_validate_suggests_vocab_commands_for_unknown_names(cli, repo):
+    (repo / "draft.cook").write_text(SALSA.replace("@lime{1}", "@guajillo chiles{2}"))
+    assert "vocab add guajillo-chile --section <section>" in cli(repo, "validate", "draft.cook").out
+
+
 def test_show_suggests_close_names(cli, repo):
     assert 'did you mean "tacos"' in cli(repo, "show", "taco").err
 

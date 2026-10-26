@@ -20,7 +20,7 @@ Cut @pork shoulder{1.5%kg} into 2-inch chunks. Season with @salt{2%tsp} and @cum
 
 Heat @lard{2%tbsp} in a #dutch oven{} over medium-high. Brown the pork in batches, ~{8%minutes} per batch.
 
-Serve in warm @corn tortillas{12} with @cilantro{1%bunch}(chopped) and @?limes{2}(in wedges).
+Serve in warm @corn tortillas{12} with chopped @cilantro{1%bunch} and wedges of @?lime{2}.
 
 > Leftovers: crisp a portion in a hot skillet instead of microwaving it.
 ```
@@ -37,7 +37,7 @@ Serve in warm @corn tortillas{12} with @cilantro{1%bunch}(chopped) and @?limes{2
 | `cuisine` | no | One lowercase word or hyphenated phrase: `mexican`, `southeast-asian` |
 | `leftovers` | no | How it keeps: `great` (as good or better the next day), `good`, or `poor` |
 | `tags` | no | Lowercase words: `weeknight`, `one-pot`, `freezer-friendly`, `date-night`, `make-ahead` |
-| `pairs` | no | File names of dishes that go with it, usually sides for a main |
+| `pairs` | no | File names of dishes that go with it. Pairing is two-way, so list it on one dish only, usually the main |
 | `rating` | no | 1 to 5, only once we've made it |
 | `source` | no | A URL, or text like "Grandma" |
 | `description` | no | One sentence for the index page |
@@ -61,10 +61,12 @@ Units: `tsp`, `tbsp`, `cup`, `fl oz`, `ml`, `l`, `g`, `kg`, `oz`, `lb`, plus cou
 
 Write ingredients the way the step reads, then let the vocab do the matching. `@green onions{2}` and `@scallion{1}` both count as `scallion` on the grocery list.
 
+Steps show only the name: `Dice @red onion{1/2}` reads "Dice red onion", and the amount and note appear only in the ingredient list. So write each step to read correctly with the tags removed.
+
 - Name the thing you'd buy, and put everything else in the note: `@chicken thighs{4}(bone-in, skin-on)`, not `@bone-in skin-on chicken thighs{4}`.
 - Tag an ingredient once, where it's first used, with its full amount. Later mentions are plain text: "Return the pork to the pot."
 - If a part is used twice, tag each use with its own amount (`@chicken broth{1 1/2%cups}` for the quinoa, `@chicken broth{1/4%cup}` for the glaze). The amounts are added together.
-- When only part of an item is used, say so in the prose: "the juice of @lime{1}", "the zest of @lemon{1}".
+- When only part of an item is used, or its prep matters to the step, say so in the prose: "Dice half a @red onion{1/2}", "the juice of a @lime{1}", "wedges of @?lime{2}".
 - Salt and pepper to taste are just `@salt` and `@black pepper{}`.
 
 ## Vocab
@@ -80,7 +82,7 @@ pantry:
   cumin: {}
 ```
 
-Names are lowercase, hyphenated, and singular. `aka` lists other names for the same thing; plurals and hyphens resolve automatically. `protein` (`chicken`, `beef`, `pork`, `fish`, and so on) drives `find --protein`. Items in `pantry` and `bar` are things we always have, so they're left off shopping lists and shown as a checklist instead.
+Names are lowercase, hyphenated, and singular. `aka` lists other names for the same thing. Case, accents, hyphens, and plurals resolve automatically ("Jalapeños" is `jalapeno`), so never alias those. `protein` (`chicken`, `beef`, `pork`, `fish`, and so on) drives `find --protein`. Items in `pantry` and `bar` are things we always have, so they're left off shopping lists and shown as a checklist instead.
 
 The sections are `produce`, `meat`, `seafood`, `deli`, `dairy`, `bakery`, `aisles` (shelf-stable groceries we buy as needed), `frozen`, `liquor` (wine and beer for cooking), `pantry` (spices, oils, vinegars, staples), and `bar` (spirits, bitters, garnishes). Always edit the vocab with `vocab add` and `vocab alias`, never by hand; they keep it sorted and refuse duplicates.
 

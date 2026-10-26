@@ -223,6 +223,18 @@ def test_load_repo_flags_pairs_that_name_nothing(make_repo, vocab_text):
     assert 'no recipe named "salsa"' in load_repo(root)[2][0].message
 
 
+def test_pairs_go_both_ways_in_the_index(make_repo, vocab_text):
+    root = make_repo(
+        {
+            "recipes/tacos.cook": recipe(META),
+            "recipes/salsa.cook": recipe(META + "\npairs: [tacos]"),
+        },
+        vocab_text,
+    )
+    by_slug = {r["slug"]: r for r in load_repo(root)[0]["recipes"]}
+    assert (by_slug["tacos"]["pairs"], by_slug["salsa"]["pairs"]) == (["salsa"], ["tacos"])
+
+
 def test_load_repo_flags_plans_that_name_nothing(make_repo, vocab_text):
     root = make_repo({"plans/2026-10-12.md": "---\nmeals:\n  - recipe: tacos\n---\n"}, vocab_text)
     assert 'no recipe named "tacos"' in load_repo(root)[2][0].message

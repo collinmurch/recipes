@@ -6,7 +6,7 @@ import sys
 try:
     import yaml  # noqa: F401
 except ImportError:
-    sys.exit("recipes needs PyYAML: `pip install pyyaml`, or run it with `uv run --with pyyaml`")
+    sys.exit("recipes needs PyYAML: run `python3 -m pip install pyyaml`")
 
 from cookbook.cli import main
 

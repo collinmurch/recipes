@@ -5,17 +5,15 @@ description: Plan meals and drinks from our saved recipe collection, search it, 
 
 # Recipes
 
-Our recipes are plain [Cooklang](https://cooklang.org) files in the `recipes` repo, published to collinmurch.com/recipes. Everything goes through one script, which needs Python 3.10+ and PyYAML:
+Our recipes are plain [Cooklang](https://cooklang.org) files in the GitHub repo [`collinmurch/recipes`](https://github.com/collinmurch/recipes), published to collinmurch.com/recipes. Everything goes through one script, which needs Python 3.10+ and PyYAML (`python3 -m pip install pyyaml` if it's missing):
 
 ```
 python3 <this skill's folder>/scripts/recipes.py <command>
 ```
 
-In the repo, use `uv run` in place of `python3`. Anywhere PyYAML is missing, `uv run --with pyyaml` does the same.
-
 ## Where it reads from
 
-- **Inside a checkout of the recipes repo** (it has `vocab.yaml`), it reads the files directly and can write.
+- **Inside a checkout of the recipes repo** (it has `vocab.yaml`), it reads the files directly and can write. A session with git access and push rights but no checkout should clone the repo and work there.
 - **Anywhere else**, such as a claude.ai or ChatGPT chat, it downloads the published index from `https://collinmurch.com/recipes/index.json` and can only read and validate. If the download fails, the app's network access is probably off; walk the user through [Setup in chat apps](#setup-in-chat-apps).
 
 `--source <repo folder | index.json | URL>` overrides this.
@@ -25,7 +23,7 @@ In the repo, use `uv run` in place of `python3`. Anywhere PyYAML is missing, `uv
 | Command | Does |
 |---|---|
 | `find [words…]` | Search. Filters: `--course`, `--cuisine`, `--protein` (or `none`), `--tag`, `--uses <ingredient>` (repeatable), `--max-time <min>`, `--not-since <YYYY-MM-DD>`, `--kind recipe\|drink`. `--sort title\|cooked\|time`; shows 20 unless `--limit <n>` (0 for all) |
-| `show <name\|file>` | Show a recipe, or preview a draft, as it'll look on the site. `--servings <n>` scales it |
+| `show <name\|file>…` | Show recipes, or preview drafts, as they'll look on the site. Drafts shown together can pair with each other. `--servings <n>` scales them |
 | `grocery <name[:servings]>…` | One shopping list for several recipes, grouped by store section. `--plan <id>` uses a plan's uncooked meals |
 | `validate [files…]` | Check drafts, or the whole repo when no files are given. Exit 1 means errors |
 | `vocab find <name>` / `vocab list [section]` | Look up ingredient names |
@@ -63,18 +61,18 @@ The script downloads the index and prints only answers, so the collection's size
 Read [references/format.md](references/format.md) first. It covers the frontmatter, the Cooklang we use, and house style.
 
 1. Write a draft to a scratch file. Use one dish per file; a meal is a main plus sides linked through `pairs`.
-2. Run `validate draft.cook` and fix every error. For an unknown ingredient, make the call:
+2. Run `validate draft.cook [other drafts…]` and fix every error. Don't look names up one at a time first; validate lists the unknown ones with a `vocab add` command to finish. For each, make the call:
    - Same thing as a suggestion, or an existing entry ("coriander" is cilantro)? Add an alias: `vocab alias cilantro coriander`.
    - Genuinely new? Add it: `vocab add guajillo-chile --section pantry`. Give `--protein` for meat and fish.
    - Keep the prose natural ("green onions", "limes"). Aliases and plurals resolve on their own, so never reword a step just to match the vocab.
-3. Run `show draft.cook` and share the preview.
+3. Run `show draft.cook [other drafts…]` and share the preview.
 4. In the repo, run `save draft.cook [other drafts…]`. Drafts saved together can pair with each other.
 
 Without the repo (a claude.ai chat), validate against the published vocab. Then give the user the finished `.cook` files, plus any `vocab add` or `vocab alias` commands they need, so a session with the repo can save them in one go.
 
 ## Editing and logging
 
-- To edit a recipe, change the file in place and run `validate`. If the title changed, `save recipes/<old>.cook` renames the file; then fix any `pairs` or plans that used the old name.
+- To edit a recipe, change the file in place and run `validate`. If the title changed, `save recipes/<old>.cook` renames the file; then fix any `pairs` or plans that used the old name (`validate` finds them).
 - When the user says they made something, run `cooked <name>` (add `--date` if it wasn't today). "Last cooked" comes from plans, so recipe files never change because of it.
 
 ## Finishing a session in the repo

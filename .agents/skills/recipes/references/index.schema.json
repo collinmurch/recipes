@@ -75,7 +75,7 @@
         "rating": { "description": "Our rating, 1 to 5, once we've made it.", "type": "integer", "minimum": 1, "maximum": 5 },
         "source": { "description": "Where it came from: a URL, or text like \"Grandma\".", "type": "string" },
         "description": { "description": "One sentence for the index page.", "type": "string" },
-        "pairs": { "description": "Slugs of dishes that go with it, usually sides for a main.", "type": "array", "items": { "$ref": "#/$defs/slug" } },
+        "pairs": { "description": "Slugs of dishes that go with it, both ways: the recipe's own list, then the recipes that list it.", "type": "array", "items": { "$ref": "#/$defs/slug" } },
         "proteins": { "description": "Proteins from its non-optional ingredients, per the vocab; empty means none.", "type": "array", "items": { "type": "string" } },
         "ingredients": { "description": "Ingredient lists, one per section that has ingredients.", "type": "array", "items": { "$ref": "#/$defs/ingredientGroup" } },
         "cookware": { "description": "Equipment named in the steps, in order of first use.", "type": "array", "items": { "type": "string" } },

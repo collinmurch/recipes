@@ -90,8 +90,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     find.add_argument("--limit", type=non_negative, default=20, help="most results to show; 0 for all")
 
-    show = command("show", cmd_show, "show a recipe, or preview a draft file")
-    show.add_argument("target", metavar="name|file")
+    show = command("show", cmd_show, "show recipes, or preview draft files together")
+    show.add_argument("targets", nargs="+", metavar="name|file")
     show.add_argument("--servings", type=positive)
 
     export = command("export", cmd_export, "print recipes as schema.org Recipe JSON-LD, for other apps")
@@ -261,8 +261,10 @@ def summary(r: dict) -> dict:
 
 
 def cmd_show(c: Collection, args) -> None:
-    r = resolve(c, args.target, allow_file=True)
-    out(json.dumps(r, indent=2) if args.json else render.recipe(r, args.servings))
+    records = resolve_all(c, args.targets)
+    if args.json:
+        return out(json.dumps(records[0] if len(records) == 1 else records, indent=2))
+    out("\n".join(render.recipe(r, args.servings) for r in records))
 
 
 def cmd_export(c: Collection, args) -> None:
@@ -271,7 +273,7 @@ def cmd_export(c: Collection, args) -> None:
     if args.all:
         document = schema_org.graph(c.recipes)
     else:
-        records = [resolve(c, target, allow_file=True) for target in args.targets]
+        records = resolve_all(c, args.targets)
         document = schema_org.recipe(records[0]) if len(records) == 1 else schema_org.graph(records)
     out(json.dumps(document, indent=2, ensure_ascii=False))
 
@@ -466,13 +468,17 @@ def check_files(c: Collection, files: list[str]) -> list[Checked]:
     return checked
 
 
-def resolve(c: Collection, target: str, allow_file: bool = False) -> dict:
+def resolve_all(c: Collection, targets: list[str]) -> list[dict]:
+    """Recipes by name, plus files, with drafts checked together so they can pair with each other."""
+    files = [t for t in targets if not c.recipe(t) and (t.endswith(".cook") or Path(t).is_file())]
+    checked = {item.path: item for item in check_files(c, files)} if files else {}
+    report([p for item in checked.values() for p in item.problems], stream=sys.stderr)
+    return [checked[Path(t)].record if t in files else resolve(c, t) for t in targets]
+
+
+def resolve(c: Collection, target: str) -> dict:
     if r := c.recipe(target):
         return r
-    if allow_file and (target.endswith(".cook") or Path(target).is_file()):
-        [item] = check_files(c, [target])
-        report(item.problems, stream=sys.stderr)
-        return item.record
     close = [s for s in c.by_slug if target in s or s in target]
     raise Exit(f'no recipe named "{target}"{hint(close)}')
 
@@ -533,6 +539,13 @@ def report(problems: list[Problem], label: str = "", stream=None) -> None:
     stream = stream or sys.stdout
     for problem in problems:
         print(problem, file=stream)
+    unknown = list(dict.fromkeys(p.unknown for p in problems if p.unknown))
+    if unknown:
+        print(
+            f"new ingredients: vocab add {' '.join(unknown)} --section <section>; "
+            "another name for an entry: vocab alias <entry> <name>",
+            file=stream,
+        )
     if label:
         errors = sum(p.level == "error" for p in problems)
         warnings = len(problems) - errors
