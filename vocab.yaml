@@ -64,6 +64,7 @@ bakery:
   sourdough: {aka: [sourdough bread]}
 
 aisles:
+  artichoke-heart: {}
   balsamic-glaze: {}
   beef-broth: {aka: [beef stock]}
   cannellini-bean: {}
@@ -98,10 +99,12 @@ pantry:
   dijon-mustard: {aka: [dijon]}
   dried-oregano: {aka: [oregano]}
   dried-thyme: {}
+  fire-roasted-tomato: {}
   fish-sauce: {}
   garlic-powder: {}
   green-curry-paste: {}
   ground-turmeric: {aka: [turmeric]}
+  harissa: {}
   honey: {}
   hot-sauce: {}
   italian-seasoning: {}
