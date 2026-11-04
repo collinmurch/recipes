@@ -17,7 +17,7 @@ from .cooklang import Cookware, Ingredient, Note, Text, Timer
 from .units import Amount, canonical_unit, describe, total, units_json
 from .vocab import Vocab, normalize, words
 
-SCHEMA = 1
+SCHEMA = 2
 """Version of the index format. It changes only when a field is removed or changes meaning."""
 
 COURSES = ("breakfast", "main", "side", "sauce", "snack", "dessert", "drink")
@@ -389,7 +389,6 @@ def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str 
     for plan in plans:
         for meal in plan["meals"]:
             if is_cooked(meal, today):
-                meal["cooked"] = meal["date"]
                 history.setdefault(meal.get("recipe"), []).append(meal["date"])
     links = _pairs_both_ways(recipes)
     by_slug = {r["slug"]: r for r in recipes}

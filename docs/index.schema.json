@@ -9,7 +9,7 @@
   "properties": {
     "schema": {
       "description": "Format version. It changes only when a field is removed or changes meaning; new fields keep the number.",
-      "const": 1
+      "const": 2
     },
     "commit": {
       "description": "The git commit this index was built from, when known.",
@@ -225,9 +225,8 @@
       "required": ["recipe"],
       "properties": {
         "recipe": { "$ref": "#/$defs/slug", "description": "The recipe's slug." },
-        "date": { "$ref": "#/$defs/date", "description": "When it's planned, or once that day has come, when it was cooked." },
+        "date": { "$ref": "#/$defs/date", "description": "When it's planned. Once that day has come, it counts as cooked on it." },
         "servings": { "description": "Servings to make, if not the recipe's own.", "type": "number", "exclusiveMinimum": 0 },
-        "cooked": { "$ref": "#/$defs/date", "description": "The date, once it's on or before the day the bundle was built; absent until then." },
         "note": { "description": "Anything worth remembering.", "type": "string" }
       }
     },

@@ -272,7 +272,7 @@ def test_grocery_from_a_plan_skips_cooked_meals(cli, both):
 def test_build_writes_the_index(cli, repo):
     assert cli(repo, "build", "out").code == 0
     index = json.loads((repo / "out/index.json").read_text())
-    assert (index["schema"], len(index["recipes"]), len(index["vocab"])) == (1, 1, 3)
+    assert (index["schema"], len(index["recipes"]), len(index["vocab"])) == (2, 1, 3)
 
 
 def test_build_refuses_a_broken_collection(cli, make_repo):
