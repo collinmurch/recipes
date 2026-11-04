@@ -54,12 +54,14 @@ dairy:
   fresh-mozzarella: {aka: [mozzarella ball]}
   heavy-cream: {aka: [heavy whipping cream]}
   parmesan: {aka: [parmigiano reggiano]}
+  sliced-cheese: {aka: [cheese, cheese slice]}
 
 bakery:
   baguette: {}
   ciabatta: {}
   corn-tortilla: {}
   crusty-bread: {}
+  sourdough: {aka: [sourdough bread]}
 
 aisles:
   balsamic-glaze: {}
@@ -105,6 +107,7 @@ pantry:
   garlic-powder: {}
   ground-turmeric: {aka: [turmeric]}
   honey: {}
+  hot-sauce: {}
   italian-seasoning: {}
   neutral-oil: {aka: [canola oil, grapeseed oil, vegetable oil]}
   olive-oil: {aka: [evoo, extra virgin olive oil]}
