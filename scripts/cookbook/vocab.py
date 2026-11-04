@@ -249,3 +249,15 @@ class Vocab:
         self.section(entry.section).items[entry.name] = updated.to_yaml()
         self._reindex()
         return entry.name
+
+    def move(self, written: str, section_name: str) -> str:
+        """Moves an entry, with its aliases and protein, to another section."""
+        entry = self.lookup(written)
+        if not entry:
+            raise ValueError(f'"{written}" is not in the vocab')
+        target = self.section(section_name)
+        if entry.section != section_name:
+            item = self.section(entry.section).items.pop(entry.name)
+            target.items = dict(sorted({**target.items, entry.name: item}.items()))
+            self._reindex()
+        return entry.name

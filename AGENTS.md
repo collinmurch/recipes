@@ -24,6 +24,7 @@ Use it for anything it has a command for instead of editing `vocab.yaml` or plan
 | `vocab find <name>` / `vocab list [section]` | Look up ingredient names |
 | `vocab add <name…> --section <s>` | Add ingredients. `--aka <alias>` (repeatable) and `--protein <p>` |
 | `vocab alias <name> <alias…>` | Add other names for an entry |
+| `vocab move <name…> --section <s>` | Move entries to another section |
 | `plan <name[:servings]>…` | Start or add to `plans/<monday>.md`. `--start <date>`, `--name <word>` for a one-off like a dinner party |
 | `cooked <name>` | Mark a planned meal cooked, or log an unplanned one. `--date`, `--plan` |
 | `export <name\|file…>` / `export --all` | Print recipes as schema.org Recipe JSON-LD |

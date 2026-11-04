@@ -84,7 +84,7 @@ pantry:
 
 Names are lowercase, hyphenated, and singular. `aka` lists other names for the same thing. Case, accents, hyphens, and plurals resolve automatically ("Jalapeños" is `jalapeno`), so never alias those. `protein` (`chicken`, `beef`, `pork`, `fish`, and so on) drives `find --protein`. Items in `pantry` and `bar` are things we always have, so they're left off shopping lists and shown as a checklist instead.
 
-The sections are `produce`, `meat`, `seafood`, `deli`, `dairy`, `bakery`, `aisles` (shelf-stable groceries we buy as needed), `frozen`, `liquor` (wine and beer for cooking), `pantry` (spices, oils, vinegars, staples), and `bar` (spirits, bitters, garnishes). Always edit the vocab with `vocab add` and `vocab alias`, never by hand; they keep it sorted and refuse duplicates.
+The sections are `produce`, `meat`, `seafood`, `deli`, `dairy`, `bakery`, `aisles` (shelf-stable groceries we buy for a specific dish, like broth, beans, and coconut milk), `frozen`, `liquor` (wine and beer for cooking), `pantry` (anything we keep on hand and restock, not buy per recipe: spices, oils, vinegars, pastes and sauces, canned tomatoes, specialty rice), and `bar` (spirits, bitters, garnishes). Always edit the vocab with `vocab add`, `vocab alias`, and `vocab move`, never by hand; they keep it sorted and refuse duplicates.
 
 ## Plans
 
@@ -107,7 +107,7 @@ meals:
 Free-form notes about the week.
 ```
 
-Only `meals[].recipe` is required. `date` is when it's planned, and `cooked` is when it was actually made. Leave `cooked` out until then. The grocery list isn't stored: `grocery --plan <id>` and the site build it from the uncooked meals plus `extras`.
+Only `meals[].recipe` is required. `date` is when it's planned, and `cooked` is when it was actually made. Leave `cooked` out until then. The grocery list isn't stored in the file: `build` computes it from the uncooked meals plus `extras` and puts it in the bundle for the site, and `grocery --plan <id>` prints the same list.
 
 ## House style
 

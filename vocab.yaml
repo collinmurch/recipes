@@ -69,19 +69,12 @@ aisles:
   cannellini-bean: {}
   chicken-broth: {aka: [chicken stock]}
   coconut-milk: {}
-  diced-tomato: {aka: [canned diced tomatoes]}
-  fish-sauce: {}
-  green-curry-paste: {}
   jasmine-rice: {}
   lard: {}
   long-grain-white-rice: {aka: [long-grain rice, white rice]}
-  paella-rice: {aka: [bomba-rice]}
   pesto: {}
   quinoa: {}
   roasted-red-pepper: {}
-  saffron: {}
-  sun-dried-tomato: {}
-  tomato-paste: {}
   walnut: {}
   white-miso: {aka: [miso, miso paste]}
 
@@ -101,24 +94,31 @@ pantry:
   cornstarch: {}
   crushed-tomato: {aka: [crushed tomatoes]}
   cumin: {}
+  diced-tomato: {aka: [canned diced tomatoes]}
   dijon-mustard: {aka: [dijon]}
   dried-oregano: {aka: [oregano]}
   dried-thyme: {}
+  fish-sauce: {}
   garlic-powder: {}
+  green-curry-paste: {}
   ground-turmeric: {aka: [turmeric]}
   honey: {}
   hot-sauce: {}
   italian-seasoning: {}
   neutral-oil: {aka: [canola oil, grapeseed oil, vegetable oil]}
   olive-oil: {aka: [evoo, extra virgin olive oil]}
+  paella-rice: {aka: [bomba-rice]}
   paprika: {}
   red-pepper-flake: {aka: [chili flakes, crushed red pepper]}
   red-wine-vinegar: {}
+  saffron: {}
   salt: {aka: [kosher salt, sea salt]}
   sesame-seed: {aka: [toasted sesame seeds]}
   smoked-paprika: {}
   soy-sauce: {}
   sugar: {}
+  sun-dried-tomato: {}
+  tomato-paste: {}
   water: {}
 
 bar:

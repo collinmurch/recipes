@@ -19,6 +19,7 @@ from .collection import (
     PLANS,
     Collection,
     Problem,
+    groceries,
     is_date,
     is_slug,
     slugify,
@@ -116,6 +117,10 @@ def build_parser() -> argparse.ArgumentParser:
     valias.add_argument("name")
     valias.add_argument("aliases", nargs="+")
     valias.set_defaults(run=cmd_vocab_alias)
+    vmove = actions.add_parser("move", help="move entries to another section")
+    vmove.add_argument("names", nargs="+")
+    vmove.add_argument("--section", required=True)
+    vmove.set_defaults(run=cmd_vocab_move)
 
     plan = command("plan", cmd_plan, "start or add to a plan")
     plan.add_argument("picks", nargs="*", metavar="name[:servings]")
@@ -275,14 +280,16 @@ def cmd_grocery(c: Collection, args) -> None:
         plan = c.plan(args.plan)
         if not plan:
             raise Exit(f'no plan "{args.plan}"')
-        picks = [(resolve(c, m["recipe"]), m.get("servings")) for m in plan["meals"] if not m.get("cooked")]
-        extras, title = plan["extras"], plan_title(plan)
+        for meal in plan["meals"]:
+            if not meal.get("cooked"):
+                resolve(c, meal["recipe"])
+        sections, title = plan["groceries"], plan_title(plan)
     elif args.picks:
         picks = [(resolve(c, name), servings) for name, servings in map(parse_pick, args.picks)]
-        extras, title = [], ", ".join(r.get("title", r["slug"]) for r, _ in picks)
+        sections = groceries(picks, c.vocab)
+        title = ", ".join(r.get("title", r["slug"]) for r, _ in picks)
     else:
         raise Exit("grocery needs recipe names or --plan <id>")
-    sections = render.groceries(picks, c.vocab, extras)
     out(json.dumps(sections, indent=2) if args.json else render.grocery_list(sections, f"Groceries: {title}"))
 
 
@@ -363,6 +370,12 @@ def cmd_vocab_alias(c: Collection, args) -> None:
     save_vocab(c)
 
 
+def cmd_vocab_move(c: Collection, args) -> None:
+    moved = [c.vocab.move(name, args.section) for name in args.names]
+    out(f"moved {', '.join(moved)} to {args.section}")
+    save_vocab(c)
+
+
 def save_vocab(c: Collection) -> None:
     (c.root / "vocab.yaml").write_text(c.vocab.stringify())
 
@@ -378,7 +391,7 @@ def cmd_plan(c: Collection, args) -> None:
     out(f"wrote {c.relative(plan.path)}")
     picks = [(resolve(c, m["recipe"]), m.get("servings")) for m in plan.meals if not m.get("cooked")]
     if picks:
-        sections = render.groceries(picks, c.vocab, plan.data.get("extras", []))
+        sections = groceries(picks, c.vocab, plan.data.get("extras", []))
         out()
         out(render.grocery_list(sections, f"Groceries: {plan_title({**plan.data, 'id': plan_id})}"))
 

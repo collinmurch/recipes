@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from dataclasses import dataclass, field
-from fractions import Fraction
-
-from .collection import amounts_of, ingredient_line
-from .units import Amount, describe, total
-from .vocab import Vocab, humanize, normalize
+from .collection import amounts_of, factor, ingredient_line
+from .units import describe
+from .vocab import humanize
 
 
 def duration(minutes: int | None) -> str:
@@ -17,12 +13,6 @@ def duration(minutes: int | None) -> str:
         return ""
     hours, rest = divmod(minutes, 60)
     return " ".join([f"{hours} hr"] * bool(hours) + [f"{rest} min"] * bool(rest))
-
-
-def factor(recipe: dict, servings: float | None) -> Fraction:
-    if not servings or not recipe.get("servings"):
-        return Fraction(1)
-    return Fraction(str(servings)) / Fraction(str(recipe["servings"]))
 
 
 def recipe(r: dict, servings: float | None = None) -> str:
@@ -89,55 +79,6 @@ def recipe(r: dict, servings: float | None = None) -> str:
         for item in section["content"]:
             out += [f"> {item['text']}" if item["type"] == "note" else f"{item['number']}. {item['text']}", ""]
     return "\n".join(out).rstrip() + "\n"
-
-
-@dataclass
-class Line:
-    name: str
-    section: str
-    amounts: list[Amount] = field(default_factory=list)
-    recipes: list[str] = field(default_factory=list)
-    optional: bool = True
-
-    def to_json(self) -> dict:
-        amounts = [a for a in total(self.amounts) if a]
-        return {"name": self.name, "amount": describe(amounts), "recipes": self.recipes, "optional": self.optional}
-
-
-def groceries(picks: list[tuple[dict, float | None]], vocab: Vocab, extras: Iterable[str] = ()) -> list[dict]:
-    """One shopping list for (recipe, servings) picks plus free-form extras,
-    grouped by section in store order. Unknown names land in "other"."""
-    lines: dict[str, Line] = {}
-
-    def add(key, name, section, optional, amounts=(), recipe=None):
-        line = lines.setdefault(key, Line(name, section))
-        line.amounts += amounts
-        line.optional = line.optional and optional
-        if recipe and recipe not in line.recipes:
-            line.recipes.append(recipe)
-
-    for r, servings in picks:
-        scale = factor(r, servings)
-        for group in r["ingredients"]:
-            for item in group["items"]:
-                entry = vocab.entries.get(item["name"]) if item["name"] else None
-                key = item["name"] or normalize(item["text"])
-                amounts = [a.scaled(scale) for a in amounts_of(item)]
-                add(key, key, entry.section if entry else "other", item["optional"], amounts, r["slug"])
-    for extra in extras:
-        entry = vocab.lookup(extra)
-        add(
-            entry.name if entry else normalize(extra),
-            entry.name if entry else extra,
-            entry.section if entry else "other",
-            False,
-        )
-
-    order = [s.name for s in vocab.sections] + ["other"]
-    staples = {s.name for s in vocab.sections if s.staple}
-    by_name = sorted(lines.values(), key=lambda line: line.name)
-    sections = [(name, [line.to_json() for line in by_name if line.section == name]) for name in order]
-    return [{"name": name, "staple": name in staples, "items": items} for name, items in sections if items]
 
 
 def grocery_list(sections: list[dict], title: str) -> str:

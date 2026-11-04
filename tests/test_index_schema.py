@@ -81,7 +81,7 @@ def full_index(make_repo):
             "recipes/everything-tacos.cook": EVERYTHING,
             "drinks/manhattan.cook": MANHATTAN,
             "plans/2026-10-12.md": PLAN,
-            "plans/2026-12-24-party.md": "---\nmeals: []\n---\n",
+            "plans/2026-12-24-party.md": "---\nmeals:\n  - recipe: everything-tacos\n---\n",
         },
         VOCAB,
     )
@@ -137,6 +137,12 @@ def test_every_plan_and_meal_field_is_produced(full_index):
     plan = next(p for p in full_index["plans"] if p["id"] == "2026-10-12")
     assert set(plan) == properties("plan")
     assert set(plan["meals"][0]) == properties("meal")
+
+
+def test_every_grocery_field_is_produced(full_index):
+    plan = next(p for p in full_index["plans"] if p["id"] == "2026-12-24-party")
+    assert set(plan["groceries"][0]) == properties("grocerySection")
+    assert set(plan["groceries"][0]["items"][0]) == properties("groceryItem")
 
 
 def test_every_amount_field_is_produced(full_index):

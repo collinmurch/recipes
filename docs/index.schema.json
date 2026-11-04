@@ -203,7 +203,7 @@
       "description": "One plans/*.md file: a week, or a one-off like a dinner party.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "path", "start", "name", "title", "spent", "extras", "meals", "notes"],
+      "required": ["id", "path", "start", "name", "title", "spent", "extras", "meals", "notes", "groceries"],
       "properties": {
         "id": { "description": "The file name without .md, like 2026-10-12 or 2026-12-24-christmas-eve.", "type": "string" },
         "path": { "description": "The file's path in the repo.", "type": "string" },
@@ -213,7 +213,8 @@
         "spent": { "description": "What the shopping cost, if recorded.", "type": ["number", "null"] },
         "extras": { "description": "Other things to buy, placed by the vocab when they match.", "type": "array", "items": { "type": "string" } },
         "meals": { "description": "What's planned and what was cooked.", "type": "array", "items": { "$ref": "#/$defs/meal" } },
-        "notes": { "description": "The Markdown body, trimmed.", "type": "string" }
+        "notes": { "description": "The Markdown body, trimmed.", "type": "string" },
+        "groceries": { "description": "The shopping list for the uncooked meals plus extras, as the grocery command prints it. Sections in store order; empty when everything is cooked.", "type": "array", "items": { "$ref": "#/$defs/grocerySection" } }
       }
     },
     "meal": {
@@ -227,6 +228,29 @@
         "servings": { "description": "Servings to make, if not the recipe's own.", "type": "number", "exclusiveMinimum": 0 },
         "cooked": { "$ref": "#/$defs/date", "description": "When it was made; absent until then." },
         "note": { "description": "Anything worth remembering.", "type": "string" }
+      }
+    },
+    "grocerySection": {
+      "description": "One store section of a plan's shopping list.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "staple", "items"],
+      "properties": {
+        "name": { "description": "A vocab section, or other for names the vocab doesn't know.", "type": "string" },
+        "staple": { "description": "Usually on hand (pantry, bar): a list to check, not to buy.", "type": "boolean" },
+        "items": { "description": "Alphabetical.", "type": "array", "items": { "$ref": "#/$defs/groceryItem" } }
+      }
+    },
+    "groceryItem": {
+      "description": "One thing to buy, totaled across the plan's recipes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "amount", "recipes", "optional"],
+      "properties": {
+        "name": { "description": "The vocab name, or the text as written for anything else.", "type": "string" },
+        "amount": { "description": "The total, ready to display, like 1 1/2 bunches; empty when no recipe gave one.", "type": "string" },
+        "recipes": { "description": "The recipes that use it; empty for an extra.", "type": "array", "items": { "$ref": "#/$defs/slug" } },
+        "optional": { "description": "True when every use is optional, such as a garnish.", "type": "boolean" }
       }
     },
     "vocabSection": {

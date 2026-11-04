@@ -194,6 +194,17 @@ def test_vocab_add_refuses_duplicates(cli, repo):
     assert (result.code, "already in produce" in result.err) == (1, True)
 
 
+def test_vocab_move_refiles_an_entry_with_its_details(cli, repo):
+    assert cli(repo, "vocab", "move", "pork shoulder", "--section", "pantry").code == 0
+    text = (repo / "vocab.yaml").read_text()
+    assert "pantry:\n  pork-shoulder: {protein: pork}\n  salt: {}\n" in text
+    assert "meat: {}" in text
+
+
+def test_vocab_move_refuses_an_unknown_section(cli, repo):
+    assert cli(repo, "vocab", "move", "salt", "--section", "garage").code == 1
+
+
 def test_vocab_alias_adds_a_name(cli, repo):
     cli(repo, "vocab", "alias", "cilantro", "coriander")
     assert cli(repo, "vocab", "find", "coriander").out == "coriander → cilantro (produce)\n"
@@ -455,3 +466,16 @@ def test_publish_rebases_onto_a_moved_main(cli, repo, remote, tmp_path):
 
 def test_publish_needs_a_message(cli, repo, remote):
     assert "needs a commit message" in cli(repo, "publish").err
+
+
+def test_plans_carry_the_grocery_list_for_uncooked_meals(cli, both):
+    (both / "plans").mkdir()
+    (both / "plans/2026-10-12.md").write_text(
+        "---\nextras: [paper towels]\nmeals:\n  - recipe: tacos\n    cooked: 2026-10-13\n  - recipe: salsa-verde\n---\n"
+    )
+    cli(both, "build", "dist")
+    plan = json.loads((both / "dist/index.json").read_text())["plans"][0]
+    names = [i["name"] for s in plan["groceries"] for i in s["items"]]
+    assert names == ["cilantro", "lime", "paper towels"]
+    printed = json.loads(cli(both, "grocery", "--plan", "2026-10-12", "--json").out)
+    assert printed == plan["groceries"]
