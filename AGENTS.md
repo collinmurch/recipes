@@ -8,6 +8,8 @@ Everything goes through one script, which needs Python 3.10+ and PyYAML (`python
 python3 scripts/recipes.py <command>
 ```
 
+Run it from the repo root exactly like that, with no `cd` or `&&` in front, so the project's allow rules match and it runs without asking.
+
 Use it for anything it has a command for instead of editing `vocab.yaml` or plans by hand. Read [docs/format.md](docs/format.md) before writing or editing a recipe.
 
 ## Commands
