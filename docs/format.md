@@ -31,7 +31,7 @@ Serve in warm @corn tortillas{12} with chopped @cilantro{1%bunch} and wedges of 
 |---|---|---|
 | `title` | yes | The name. The file name comes from it: "Pork Carnitas" becomes `pork-carnitas.cook` |
 | `course` | yes | `breakfast`, `main`, `side`, `sauce`, `snack`, `dessert`, or `drink`. Drinks are filed in `drinks/` |
-| `servings` | yes | A number |
+| `servings` | yes | A number. Write new recipes for 4 unless the user says otherwise, scaling a ported one to fit |
 | `time_total` | yes, except drinks | Whole minutes, start to plate, including passive time |
 | `time_active` | no | Whole minutes of hands-on work |
 | `cuisine` | no | One lowercase word or hyphenated phrase: `mexican`, `southeast-asian` |
