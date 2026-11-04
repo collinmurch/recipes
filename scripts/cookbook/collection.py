@@ -45,6 +45,11 @@ def is_minutes(v) -> bool:
     return isinstance(v, int) and not isinstance(v, bool) and v > 0
 
 
+def is_cooked(meal: dict, today: str | None = None) -> bool:
+    """A meal's date is when it's planned until that day comes, then when it was cooked."""
+    return is_date(meal.get("date")) and meal["date"] <= (today or date.today().isoformat())
+
+
 def is_date(v) -> bool:
     if not isinstance(v, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
         return False
@@ -79,7 +84,7 @@ FIELDS = {
 }
 
 PLAN_FIELDS = ("title", "spent", "extras", "meals")
-MEAL_FIELDS = ("recipe", "date", "servings", "cooked", "note")
+MEAL_FIELDS = ("recipe", "date", "servings", "note")
 
 
 @dataclass
@@ -292,13 +297,14 @@ def compile_plan(path: str, text: str) -> tuple[dict, list[Problem]]:
             report(f"meal {n} should be a map")
             continue
         for key in meal:
-            if key not in MEAL_FIELDS:
+            if key == "cooked":
+                report(f'meal {n}: "cooked" is now just "date", which counts as cooked once the day comes')
+            elif key not in MEAL_FIELDS:
                 report(f'meal {n}: unknown key "{key}"')
         if not is_slug(meal.get("recipe")):
             report(f"meal {n}: recipe should be a recipe name")
-        for key in ("date", "cooked"):
-            if key in meal and not is_date(meal[key]):
-                report(f"meal {n}: {key} should be YYYY-MM-DD")
+        if "date" in meal and not is_date(meal["date"]):
+            report(f"meal {n}: date should be YYYY-MM-DD")
         if "servings" in meal and not is_number(meal["servings"]):
             report(f"meal {n}: servings should be a number")
         if "note" in meal and not is_text(meal["note"]):
@@ -354,7 +360,7 @@ def load_repo(root: Path) -> tuple[dict, Vocab, list[Problem]]:
         plans.append(plan)
 
     problems += _cross_check(recipes, plans)
-    return _assemble(recipes, plans, vocab, _commit(root)), vocab, problems
+    return _assemble(recipes, plans, vocab, _commit(root), _added(root)), vocab, problems
 
 
 def _cross_check(recipes: list[dict], plans: list[dict]) -> list[Problem]:
@@ -377,19 +383,21 @@ def _cross_check(recipes: list[dict], plans: list[dict]) -> list[Problem]:
     return problems
 
 
-def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str | None) -> dict:
+def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str | None, added: dict[str, str]) -> dict:
+    today = date.today().isoformat()
     history: dict[str, list[str]] = {}
     for plan in plans:
         for meal in plan["meals"]:
-            if is_date(meal.get("cooked")):
-                history.setdefault(meal.get("recipe"), []).append(meal["cooked"])
+            if is_cooked(meal, today):
+                meal["cooked"] = meal["date"]
+                history.setdefault(meal.get("recipe"), []).append(meal["date"])
     links = _pairs_both_ways(recipes)
     by_slug = {r["slug"]: r for r in recipes}
     for plan in plans:
         picks = [
             (by_slug[m["recipe"]], m.get("servings"))
             for m in plan["meals"]
-            if not m.get("cooked") and m.get("recipe") in by_slug
+            if not is_cooked(m, today) and m.get("recipe") in by_slug
         ]
         plan["groceries"] = groceries(picks, vocab, plan["extras"])
     return {
@@ -401,6 +409,7 @@ def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str 
                 **({"pairs": links[r["slug"]]} if links.get(r["slug"]) else {}),
                 "last_cooked": max(history.get(r["slug"], []), default=None),
                 "times_cooked": len(history.get(r["slug"], [])),
+                "added": added.get(r["path"]),
             }
             for r in sorted(recipes, key=lambda r: r["slug"])
         ],
@@ -473,6 +482,46 @@ def _pairs_both_ways(recipes: list[dict]) -> dict[str, list[str]]:
             if other in links and other != r["slug"]:
                 links[other].append(r["slug"])
     return {slug: list(dict.fromkeys(pairs)) for slug, pairs in links.items()}
+
+
+def _added(root: Path) -> dict[str, str]:
+    """The date each recipe file first entered git history, following renames.
+    Empty in a shallow clone, where every file would look added by its oldest commit."""
+    try:
+        shallow = subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"], cwd=root, capture_output=True, text=True
+        )
+        if shallow.returncode or shallow.stdout.strip() != "false":
+            return {}
+        log = subprocess.run(
+            [
+                "git",
+                "log",
+                "--reverse",
+                "-M",
+                "--diff-filter=AR",
+                "--name-status",
+                "--format=%x00%as",
+                "--",
+                *DIRS.values(),
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return {}
+    added: dict[str, str] = {}
+    day = ""
+    for line in log.stdout.splitlines():
+        if line.startswith("\0"):
+            day = line[1:]
+        elif line.startswith("A\t"):
+            added[line[2:]] = day
+        elif line.startswith("R"):
+            _, old, new = line.split("\t")
+            added[new] = added.pop(old, day)
+    return added
 
 
 def _commit(root: Path) -> str | None:

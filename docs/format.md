@@ -99,7 +99,6 @@ meals:
   - recipe: pork-carnitas
     date: 2026-10-13
     servings: 6
-    cooked: 2026-10-13
     note: Doubled the lime.
   - recipe: jambalaya
 ---
@@ -107,7 +106,7 @@ meals:
 Free-form notes about the week.
 ```
 
-Only `meals[].recipe` is required. `date` is when it's planned, and `cooked` is when it was actually made. Leave `cooked` out until then. The grocery list isn't stored in the file: `build` computes it from the uncooked meals plus `extras` and puts it in the bundle for the site, and `grocery --plan <id>` prints the same list.
+Only `meals[].recipe` is required. `date` is when it's planned, and once that day comes it counts as when it was cooked. A meal with no date, or a date still ahead, isn't cooked yet; `cooked <name>` sets the date when it's made on a different day. The grocery list isn't stored in the file: `build` computes it from the uncooked meals plus `extras` and puts it in the bundle for the site, and `grocery --plan <id>` prints the same list.
 
 ## House style
 

@@ -238,7 +238,7 @@ def test_plan_names_a_one_off(cli, repo):
 def test_cooked_marks_a_planned_meal(cli, repo):
     cli(repo, "plan", "tacos", "--start", "2026-10-12")
     cli(repo, "cooked", "tacos", "--date", "2026-10-14")
-    assert "cooked: 2026-10-14" in (repo / "plans/2026-10-12.md").read_text()
+    assert "date: 2026-10-14" in (repo / "plans/2026-10-12.md").read_text()
     assert "2026-10-14" in cli(repo, "find", "tacos").out
 
 
@@ -254,7 +254,7 @@ def test_cooked_keeps_plan_notes(cli, make_repo):
         }
     )
     cli(root, "cooked", "tacos", "--date", "2026-10-13")
-    assert (root / "plans/2026-10-12.md").read_text().endswith("cooked: 2026-10-13\n---\n\nBought too many limes.\n")
+    assert (root / "plans/2026-10-12.md").read_text().endswith("date: 2026-10-13\n---\n\nBought too many limes.\n")
 
 
 def test_cooked_rejects_a_bad_date(cli, repo):
@@ -345,8 +345,8 @@ def dish(title: str, minutes: int) -> str:
 @pytest.fixture
 def many(make_repo):
     files = {f"recipes/dish-{n:02d}.cook": dish(f"Dish {n:02d}", 100 - n) for n in range(1, 26)}
-    files["plans/2026-10-05.md"] = "---\nmeals:\n  - recipe: dish-01\n    cooked: 2026-10-06\n---\n"
-    files["plans/2026-10-12.md"] = "---\nmeals:\n  - recipe: dish-02\n    cooked: 2026-10-13\n---\n"
+    files["plans/2026-10-05.md"] = "---\nmeals:\n  - recipe: dish-01\n    date: 2026-10-06\n---\n"
+    files["plans/2026-10-12.md"] = "---\nmeals:\n  - recipe: dish-02\n    date: 2026-10-13\n---\n"
     return make_repo(files)
 
 
@@ -471,7 +471,9 @@ def test_publish_needs_a_message(cli, repo, remote):
 def test_plans_carry_the_grocery_list_for_uncooked_meals(cli, both):
     (both / "plans").mkdir()
     (both / "plans/2026-10-12.md").write_text(
-        "---\nextras: [paper towels]\nmeals:\n  - recipe: tacos\n    cooked: 2026-10-13\n  - recipe: salsa-verde\n---\n"
+        "---\nextras: [paper towels]\nmeals:\n"
+        "  - recipe: tacos\n    date: 2026-10-13\n"
+        "  - recipe: salsa-verde\n    date: 2099-01-01\n---\n"
     )
     cli(both, "build", "dist")
     plan = json.loads((both / "dist/index.json").read_text())["plans"][0]

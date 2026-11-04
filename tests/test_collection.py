@@ -1,3 +1,6 @@
+import os
+import subprocess
+
 import pytest
 
 from cookbook.collection import compile_plan, compile_recipe, ingredient_line, load_repo, slugify
@@ -150,7 +153,7 @@ def plan(body: str, path: str = "plans/2026-10-12.md"):
 
 
 def test_a_week_plan_is_read():
-    record, problems = plan("meals:\n  - recipe: tacos\n    cooked: 2026-10-13")
+    record, problems = plan("meals:\n  - recipe: tacos\n    date: 2026-10-13")
     assert problems == []
     assert (record["id"], record["start"], record["name"], record["notes"]) == (
         "2026-10-12",
@@ -170,8 +173,12 @@ def test_a_plan_needs_a_dated_name():
 
 
 def test_bad_meal_fields_are_rejected():
-    _, problems = plan("meals:\n  - recipe: Tacos\n    cooked: yesterday\n    servings: 0\n    when: lunch")
+    _, problems = plan("meals:\n  - recipe: Tacos\n    date: yesterday\n    servings: 0\n    when: lunch")
     assert len(problems) == 4
+
+
+def test_the_old_cooked_key_points_to_date():
+    assert '"cooked" is now just "date"' in plan("meals:\n  - recipe: tacos\n    cooked: 2026-10-13")[1][0].message
 
 
 def test_unknown_plan_keys_are_rejected():
@@ -187,8 +194,13 @@ def test_load_repo_builds_cooking_history(make_repo, vocab_text):
     root = make_repo(
         {
             "recipes/tacos.cook": recipe("title: Tacos\ncourse: main\nservings: 2\ntime_total: 30"),
-            "plans/2026-10-05.md": "---\nmeals:\n  - recipe: tacos\n    cooked: 2026-10-06\n---\n",
-            "plans/2026-10-12.md": "---\nmeals:\n  - recipe: tacos\n    cooked: 2026-10-14\n  - recipe: tacos\n---\n",
+            "plans/2026-10-05.md": "---\nmeals:\n  - recipe: tacos\n    date: 2026-10-06\n---\n",
+            "plans/2026-10-12.md": (
+                "---\nmeals:\n"
+                "  - recipe: tacos\n    date: 2026-10-14\n"
+                "  - recipe: tacos\n    date: 2099-01-01\n"
+                "  - recipe: tacos\n---\n"
+            ),
         },
         vocab_text,
     )
@@ -256,3 +268,33 @@ def test_an_ingredient_line_can_show_a_scaled_amount():
 def test_steps_carry_their_prose():
     step = compile(recipe(body="Rest @salt{1%tsp} in a #pot{} ~{5%minutes}."))[0]["sections"][0]["content"][0]
     assert step["text"] == "Rest salt in a pot 5 minutes."
+
+
+def commit(root, day: str, message: str) -> None:
+    env = {"GIT_AUTHOR_DATE": f"{day}T12:00:00", "GIT_COMMITTER_DATE": f"{day}T12:00:00"}
+    for var in ("AUTHOR", "COMMITTER"):
+        env[f"GIT_{var}_NAME"], env[f"GIT_{var}_EMAIL"] = "Test", "test@example.com"
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", message], cwd=root, check=True, env={**os.environ, **env})
+
+
+def test_recipes_are_dated_by_their_first_commit_across_renames(make_repo, vocab_text):
+    tacos = "---\ntitle: Tacos\ncourse: main\nservings: 4\n---\n\nSeason @pork shoulder{1%kg} with @salt.\n"
+    root = make_repo({"recipes/tacos.cook": tacos}, vocab_text)
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    commit(root, "2026-10-01", "Add tacos")
+    (root / "recipes/tacos.cook").rename(root / "recipes/pork-tacos.cook")
+    (root / "recipes/pork-tacos.cook").write_text(tacos.replace("Tacos", "Pork Tacos"))
+    commit(root, "2026-10-05", "Rename tacos")
+    (root / "recipes/lime-tacos.cook").write_text(tacos.replace("Tacos", "Lime Tacos"))
+
+    index, _, _ = load_repo(root)
+    assert {r["slug"]: r["added"] for r in index["recipes"]} == {"pork-tacos": "2026-10-01", "lime-tacos": None}
+
+
+def test_recipes_are_undated_outside_git(make_repo, vocab_text):
+    root = make_repo(
+        {"recipes/tacos.cook": "---\ntitle: Tacos\ncourse: main\nservings: 4\n---\n\nAdd @salt.\n"}, vocab_text
+    )
+    index, _, _ = load_repo(root)
+    assert index["recipes"][0]["added"] is None

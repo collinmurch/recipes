@@ -59,7 +59,7 @@
       "description": "One .cook file. Frontmatter fields appear only when set.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["slug", "kind", "path", "title", "course", "servings", "proteins", "ingredients", "cookware", "sections", "last_cooked", "times_cooked"],
+      "required": ["slug", "kind", "path", "title", "course", "servings", "proteins", "ingredients", "cookware", "sections", "last_cooked", "times_cooked", "added"],
       "properties": {
         "slug": { "$ref": "#/$defs/slug", "description": "The file name without .cook; the recipe's id and URL segment." },
         "kind": { "description": "\"drink\" for files in drinks/, otherwise \"recipe\".", "enum": ["recipe", "drink"] },
@@ -81,7 +81,8 @@
         "cookware": { "description": "Equipment named in the steps, in order of first use.", "type": "array", "items": { "type": "string" } },
         "sections": { "description": "The method: steps and notes, grouped by section.", "type": "array", "items": { "$ref": "#/$defs/section" } },
         "last_cooked": { "description": "The latest cooked date across all plans, or null if never.", "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] },
-        "times_cooked": { "description": "How many times plans record it as cooked.", "type": "integer", "minimum": 0 }
+        "times_cooked": { "description": "How many times plans record it as cooked.", "type": "integer", "minimum": 0 },
+        "added": { "description": "When the recipe file was first committed, following renames; null if it isn't committed yet or the build ran without full git history.", "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] }
       }
     },
     "ingredientGroup": {
@@ -224,9 +225,9 @@
       "required": ["recipe"],
       "properties": {
         "recipe": { "$ref": "#/$defs/slug", "description": "The recipe's slug." },
-        "date": { "$ref": "#/$defs/date", "description": "When it's planned." },
+        "date": { "$ref": "#/$defs/date", "description": "When it's planned, or once that day has come, when it was cooked." },
         "servings": { "description": "Servings to make, if not the recipe's own.", "type": "number", "exclusiveMinimum": 0 },
-        "cooked": { "$ref": "#/$defs/date", "description": "When it was made; absent until then." },
+        "cooked": { "$ref": "#/$defs/date", "description": "The date, once it's on or before the day the bundle was built; absent until then." },
         "note": { "description": "Anything worth remembering.", "type": "string" }
       }
     },

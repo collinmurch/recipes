@@ -20,6 +20,7 @@ from .collection import (
     Collection,
     Problem,
     groceries,
+    is_cooked,
     is_date,
     is_slug,
     slugify,
@@ -281,7 +282,7 @@ def cmd_grocery(c: Collection, args) -> None:
         if not plan:
             raise Exit(f'no plan "{args.plan}"')
         for meal in plan["meals"]:
-            if not meal.get("cooked"):
+            if not is_cooked(meal):
                 resolve(c, meal["recipe"])
         sections, title = plan["groceries"], plan_title(plan)
     elif args.picks:
@@ -389,7 +390,7 @@ def cmd_plan(c: Collection, args) -> None:
         plan.meals.append({"recipe": name, "servings": servings} if servings else {"recipe": name})
     plan.write()
     out(f"wrote {c.relative(plan.path)}")
-    picks = [(resolve(c, m["recipe"]), m.get("servings")) for m in plan.meals if not m.get("cooked")]
+    picks = [(resolve(c, m["recipe"]), m.get("servings")) for m in plan.meals if not is_cooked(m)]
     if picks:
         sections = groceries(picks, c.vocab, plan.data.get("extras", []))
         out()
@@ -404,13 +405,13 @@ def cmd_cooked(c: Collection, args) -> None:
     candidates = [args.plan] if args.plan else started
     for plan_id in candidates:
         plan = PlanFile.read(c, plan_id)
-        meal = next((m for m in plan.meals if m.get("recipe") == args.name and not m.get("cooked")), None)
+        meal = next((m for m in plan.meals if m.get("recipe") == args.name and not is_cooked(m)), None)
         if meal:
-            meal["cooked"] = when
+            meal["date"] = when
             plan.write()
             return out(f"marked {args.name} cooked on {when} in {c.relative(plan.path)}")
     plan = PlanFile.read(c, args.plan or monday(when))
-    plan.meals.append({"recipe": args.name, "cooked": when})
+    plan.meals.append({"recipe": args.name, "date": when})
     plan.write()
     out(f"added {args.name}, cooked on {when}, to {c.relative(plan.path)}")
 
@@ -535,7 +536,7 @@ class PlanFile:
     meals: list[dict] = field(default_factory=list)
 
     KEYS = ("title", "spent", "extras", "meals")
-    MEAL_KEYS = ("recipe", "date", "servings", "cooked", "note")
+    MEAL_KEYS = ("recipe", "date", "servings", "note")
 
     @classmethod
     def read(cls, c: Collection, plan_id: str) -> PlanFile:

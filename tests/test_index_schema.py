@@ -66,7 +66,6 @@ meals:
   - recipe: everything-tacos
     date: 2026-10-13
     servings: 6
-    cooked: 2026-10-13
     note: Doubled the lime.
 ---
 
