@@ -11,6 +11,7 @@ produce:
   fingerling-potato: {}
   garlic: {}
   ginger: {aka: [fresh ginger, ginger root]}
+  green-bean: {}
   green-bell-pepper: {}
   jalapeno: {}
   lemon: {}
@@ -25,6 +26,7 @@ produce:
   scallion: {aka: [green onion, spring onion]}
   shallot: {}
   sugar-snap-pea: {aka: [snap pea]}
+  sweet-pepper: {}
   sweet-potato: {}
   white-onion: {}
   yellow-onion: {aka: [onion]}
@@ -34,6 +36,7 @@ meat:
   beef-tenderloin: {aka: [beef tenderloin steak, filet mignon], protein: beef}
   chicken-breast: {aka: [boneless skinless chicken breast], protein: chicken}
   chicken-thigh: {protein: chicken}
+  chicken-wing: {protein: chicken}
   pork-chop: {protein: pork}
   pork-shoulder: {aka: [boston butt, pork butt], protein: pork}
 
@@ -64,9 +67,12 @@ aisles:
   jasmine-rice: {}
   lard: {}
   long-grain-white-rice: {aka: [long-grain rice, white rice]}
+  paella-rice: {aka: [bomba-rice]}
   pesto: {}
   quinoa: {}
   roasted-red-pepper: {}
+  saffron: {}
+  tomato-paste: {}
   walnut: {}
   white-miso: {aka: [miso, miso paste]}
 
