@@ -12,5 +12,4 @@ Our recipes live in the GitHub repo [collinmurch/recipes](https://github.com/col
 3. If the clone fails, stop and tell the user what this session needs:
    - **Claude Code:** add the `collinmurch/recipes` repo to the session.
    - **Claude app:** turn on code execution and network access in Settings → Capabilities, and allow `github.com`.
-
-Reading and planning only need the clone. Saving needs a push to `main`. Without push access, finish the work, then hand the user the files and commands so a session with access can save them.
+4. Before any work that changes files, run `python3 scripts/recipes.py publish --check`. Cloning a public repo always works, so this is the only early sign that saving will fail. If it fails, tell the user now that this session can't push, and that you'll hand over the files at the end.

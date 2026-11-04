@@ -1,4 +1,5 @@
 import json
+import subprocess
 
 import pytest
 
@@ -134,10 +135,11 @@ def test_grocery_needs_something(cli, repo):
     assert cli(repo, "grocery").code == 1
 
 
-def test_save_files_a_draft_under_its_title(cli, repo):
+def test_save_files_a_draft_under_its_title_and_removes_it(cli, repo):
     (repo / "draft.cook").write_text(SALSA)
-    assert cli(repo, "save", "draft.cook").out == "saved recipes/salsa-verde.cook\n"
+    assert cli(repo, "save", "draft.cook").out == "saved recipes/salsa-verde.cook and removed draft.cook\n"
     assert (repo / "recipes/salsa-verde.cook").read_text() == SALSA
+    assert not (repo / "draft.cook").exists()
 
 
 def test_save_files_drinks_in_drinks(cli, repo):
@@ -377,3 +379,79 @@ def test_find_sorts_quickest_first(cli, many):
 
 def test_find_rejects_a_negative_limit(cli, many):
     assert cli(many, "find", "--limit", "-1").code == 2
+
+
+@pytest.fixture
+def remote(repo, tmp_path, monkeypatch):
+    """Makes repo a clone whose origin is a bare repo with main. Returns origin's path."""
+    for var in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{var}_NAME", "Test")
+        monkeypatch.setenv(f"GIT_{var}_EMAIL", "test@example.com")
+    origin = tmp_path / "origin.git"
+    git = lambda cwd, *args: subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)  # noqa: E731
+    git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
+    git(repo, "init", "-q", "-b", "main")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "start")
+    git(repo, "remote", "add", "origin", str(origin))
+    git(repo, "push", "-q", "origin", "main")
+    return origin
+
+
+def origin_log(origin) -> str:
+    return subprocess.run(["git", "log", "--format=%s", "main"], cwd=origin, capture_output=True, text=True).stdout
+
+
+def test_publish_check_passes_with_push_access(cli, repo, remote):
+    assert cli(repo, "publish", "--check").out == "this checkout can push to main\n"
+
+
+def test_publish_check_passes_when_behind_main(cli, repo, remote, tmp_path):
+    other = tmp_path / "other"
+    subprocess.run(["git", "clone", "-q", str(remote), str(other)], check=True)
+    subprocess.run(["git", "commit", "-q", "--allow-empty", "-m", "elsewhere"], cwd=other, check=True)
+    subprocess.run(["git", "push", "-q", "origin", "main"], cwd=other, check=True)
+    assert cli(repo, "publish", "--check").code == 0
+
+
+def test_publish_check_fails_without_push_access(cli, repo, remote, tmp_path):
+    remote.rename(tmp_path / "gone.git")
+    result = cli(repo, "publish", "--check")
+    assert result.code == 1
+    assert "couldn't fetch main" in result.err
+
+
+def test_publish_commits_content_and_pushes(cli, repo, remote):
+    (repo / "recipes/salsa-verde.cook").write_text(SALSA)
+    (repo / "notes.txt").write_text("not content")
+    result = cli(repo, "publish", "Add salsa verde")
+    assert result.code == 0, result.err
+    assert origin_log(remote).splitlines() == ["Add salsa verde", "start"]
+    shown = subprocess.run(["git", "show", "--stat", "--format=", "main"], cwd=remote, capture_output=True, text=True)
+    assert "recipes/salsa-verde.cook" in shown.stdout
+    assert "notes.txt" not in shown.stdout
+
+
+def test_publish_refuses_a_broken_collection(cli, repo, remote):
+    (repo / "recipes/tacos.cook").write_text(TACOS.replace("pork shoulder", "pork butt"))
+    result = cli(repo, "publish", "Break tacos")
+    assert result.code == 1
+    assert "nothing published" in result.err
+    assert origin_log(remote).splitlines() == ["start"]
+
+
+def test_publish_rebases_onto_a_moved_main(cli, repo, remote, tmp_path):
+    other = tmp_path / "other"
+    subprocess.run(["git", "clone", "-q", str(remote), str(other)], check=True)
+    (other / "recipes/salsa-verde.cook").write_text(SALSA)
+    subprocess.run(["git", "add", "-A"], cwd=other, check=True)
+    subprocess.run(["git", "commit", "-qm", "Add salsa verde"], cwd=other, check=True)
+    subprocess.run(["git", "push", "-q", "origin", "main"], cwd=other, check=True)
+
+    (repo / "recipes/tacos.cook").write_text(TACOS.replace("{2}", "{3}"))
+    assert cli(repo, "publish", "More limes").code == 0
+    assert origin_log(remote).splitlines() == ["More limes", "Add salsa verde", "start"]
+
+
+def test_publish_needs_a_message(cli, repo, remote):
+    assert "needs a commit message" in cli(repo, "publish").err

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -124,6 +126,10 @@ def build_parser() -> argparse.ArgumentParser:
     cooked.add_argument("name")
     cooked.add_argument("--date", type=iso_date, help="default: today")
     cooked.add_argument("--plan", metavar="ID")
+
+    publish = command("publish", cmd_publish, "check everything, commit it, and push it to main")
+    publish.add_argument("message", nargs="?", help="the commit message")
+    publish.add_argument("--check", action="store_true", help="only check that this checkout can push")
 
     build = command("build", cmd_build, "check everything and write the site bundle")
     build.add_argument("dir", nargs="?", default="dist")
@@ -310,12 +316,16 @@ def cmd_save(c: Collection, args) -> None:
     for item, dest in moves:
         dest.parent.mkdir(parents=True, exist_ok=True)
         text = item.path.read_text().rstrip() + "\n"
-        moved = dest != item.path.resolve() and c.filed(item.path)
+        elsewhere = dest != item.path.resolve()
+        filed = c.filed(item.path)
         dest.write_text(text)
-        if moved:
+        if elsewhere:
             item.path.unlink()
+        if elsewhere and filed:
             old = item.path.stem
-            out(f'moved {moved} to {c.relative(dest)}; update any pairs or plans that named "{old}"')
+            out(f'moved {filed} to {c.relative(dest)}; update any pairs or plans that named "{old}"')
+        elif elsewhere:
+            out(f"saved {c.relative(dest)} and removed {item.label}")
         else:
             out(f"saved {c.relative(dest)}")
 
@@ -403,6 +413,47 @@ def cmd_build(c: Collection, args) -> None:
         write_json(target / "jsonld" / f"{r['slug']}.json", schema_org.recipe(r))
     write_json(target / "index.json", c.index)
     out(f"wrote {args.dir}/index.json, plus jsonld/ for {count(len(c.recipes), 'recipe')}")
+
+
+CONTENT = (*DIRS.values(), PLANS, "vocab.yaml")
+"""What publish commits. Anything else, like changes to the tool, is committed by hand."""
+
+
+def cmd_publish(c: Collection, args) -> None:
+    if args.check:
+        # Pushing main's own tip tests access alone, however far behind this checkout is.
+        git(c, "fetch", "-q", "origin", "main", failure="couldn't fetch main")
+        git(c, "push", "--dry-run", "origin", "FETCH_HEAD:refs/heads/main", failure="this checkout can't push to main")
+        return out("this checkout can push to main")
+    if not args.message:
+        raise Exit("publish needs a commit message")
+    if any(p.level == "error" for p in c.problems):
+        report(c.problems, "publish")
+        raise Exit("nothing published")
+    git(c, "add", "-A", "--", *(name for name in CONTENT if (c.root / name).exists()))
+    if git(c, "diff", "--cached", "--quiet", check=False).returncode:
+        git(c, "commit", "-q", "-m", args.message)
+    else:
+        out("nothing new to commit")
+    if git(c, "pull", "-q", "--rebase", "--autostash", "origin", "main", check=False).returncode:
+        git(c, "rebase", "--abort", check=False)
+        raise Exit("main has changes that conflict with this commit; nothing pushed. Resolve with git pull --rebase")
+    pulled = Collection(c.root)
+    if any(p.level == "error" for p in pulled.problems):
+        report(pulled.problems, "after pulling main")
+        raise Exit("nothing pushed; fix these, then run publish again")
+    git(c, "push", "-q", "origin", "HEAD:main", failure="couldn't push to main")
+    out(f"pushed {git(c, 'rev-parse', '--short', 'HEAD').stdout.strip()} to main")
+
+
+def git(c: Collection, *args: str, check: bool = True, failure: str = "") -> subprocess.CompletedProcess:
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    result = subprocess.run(["git", *args], cwd=c.root, env=env, capture_output=True, text=True)
+    if check and result.returncode:
+        failure = failure or f"git {args[0]} failed"
+        detail = (result.stderr or result.stdout).strip()
+        raise Exit(f"{failure}:\n{detail}" if detail else failure)
+    return result
 
 
 def write_json(path: Path, data) -> None:

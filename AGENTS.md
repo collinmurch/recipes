@@ -25,6 +25,7 @@ Use it for anything it has a command for instead of editing `vocab.yaml` or plan
 | `plan <name[:servings]>…` | Start or add to `plans/<monday>.md`. `--start <date>`, `--name <word>` for a one-off like a dinner party |
 | `cooked <name>` | Mark a planned meal cooked, or log an unplanned one. `--date`, `--plan` |
 | `export <name\|file…>` / `export --all` | Print recipes as schema.org Recipe JSON-LD |
+| `publish "<message>"` | Check everything, commit the recipes, drinks, plans, and vocab, pull `main` with rebase, and push. `--check` only tests push access |
 | `build [dir]` | Check everything and write the site bundle (`index.json` and `jsonld/`). CI runs it |
 
 `find`, `show`, and `grocery` accept `--json`.
@@ -40,13 +41,13 @@ Query the collection through the script rather than opening files in bulk; it pr
 
 ## Writing or porting a recipe
 
-1. Write a draft to a scratch file. Use one dish per file; a meal is a main plus sides linked through `pairs`.
+1. Write a draft to a scratch file outside the repo. Use one dish per file; a meal is a main plus sides linked through `pairs`.
 2. Run `validate draft.cook [other drafts…]` and fix every error. Don't look names up one at a time first; validate lists the unknown ones with a `vocab add` command to finish. For each, make the call:
    - Same thing as a suggestion, or an existing entry ("coriander" is cilantro)? Add an alias: `vocab alias cilantro coriander`.
    - Genuinely new? Add it: `vocab add guajillo-chile --section pantry`. Give `--protein` for meat and fish.
    - Keep the prose natural ("green onions", "limes"). Aliases and plurals resolve on their own, so never reword a step just to match the vocab.
 3. Run `show draft.cook [other drafts…]` and share the preview.
-4. Run `save draft.cook [other drafts…]`. Drafts saved together can pair with each other.
+4. Run `save draft.cook [other drafts…]`. Drafts saved together can pair with each other, and each draft is removed once it's filed.
 
 ## Editing and logging
 
@@ -64,7 +65,9 @@ Map from those fields; don't invent any.
 
 ## Finishing a session
 
-Run `validate` with no files to check the whole collection. Make one commit for the session's work, with a plain message like `Add carnitas; plan week of 2026-10-12`, and push to `main`. CI re-runs the checks and publishes the site.
+Run `publish "<message>"` once, with a plain message like `Add carnitas; plan week of 2026-10-12`. It checks the whole collection, makes one commit, rebases onto `main` if it moved, and pushes. CI re-runs the checks and publishes the site. Changes to the tool itself aren't included; commit those by hand.
+
+If `publish --check` failed at the start of the session, there's no push access: finish the work, then give the user the changed files and the `publish` command to run where they can push.
 
 ## Changing the tool
 

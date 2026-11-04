@@ -16,7 +16,7 @@ agent ──push──▶ this repo ──CI──▶ collinmurch.com/recipes �
 
 [`AGENTS.md`](AGENTS.md) (also `CLAUDE.md`) is the whole workflow, for people and agents alike, and [`docs/format.md`](docs/format.md) is the file format and house style. Everything runs through `scripts/recipes.py`.
 
-To use it from a chat app or a session without the repo, install [`skill/recipes`](skill/recipes) as a skill. It only tells the agent to clone this repo and follow `AGENTS.md`, so it never needs re-uploading.
+To use it from a chat app or a session without the repo, install [`skill/recipes`](skill/recipes) as a skill. It only tells the agent to clone this repo and follow `AGENTS.md`, so it rarely changes. The copy here is the source: after editing it, upload it to claude.ai again.
 
 ## Publishing
 
