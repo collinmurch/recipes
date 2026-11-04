@@ -5,4 +5,6 @@ __pycache__/
 .pytest_cache/
 .claude/*
 !.claude/settings.json
+.codex/*
+!.codex/rules/
 .ruff_cache/
