@@ -16,7 +16,7 @@ agent ──push──▶ this repo ──CI──▶ collinmurch.com/recipes �
 
 [`AGENTS.md`](AGENTS.md) (also `CLAUDE.md`) is the whole workflow, for people and agents alike, and [`docs/format.md`](docs/format.md) is the file format and house style. Everything runs through `scripts/recipes.py`.
 
-To use it from a chat app or a session without the repo, install [`skill/recipes`](skill/recipes) as a skill. It only tells the agent to clone this repo and follow `AGENTS.md`, so it rarely changes. It lives in `skill/` rather than `.claude/skills/` or `.agents/skills/` on purpose: agents auto-load skills from those folders, and inside a checkout `AGENTS.md` already covers everything, so loading the skill there would only add a redundant clone step. The copy here is the source: after editing it, upload it again wherever it's installed.
+To use it from a chat app or a session without the repo, install [`skill/recipes`](skill/recipes) as a skill. It only tells the agent to clone this repo and follow `AGENTS.md`, so it rarely changes. It lives in `skill/` rather than `.claude/skills/` or `.agents/skills/` on purpose: agents auto-load skills from those folders, and inside a checkout `AGENTS.md` already covers everything, so loading the skill there would only add a redundant clone step. The copy here is the source: after editing it, run `skill/zip.sh` and upload `skill/recipes.zip` again wherever it's installed.
 
 `.claude/settings.json` and `.codex/rules/recipes.rules` let Claude Code and Codex run `scripts/recipes.py` without asking. Codex reads project rules only once you trust the project.
 

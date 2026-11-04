@@ -69,6 +69,10 @@ Run `publish "<message>"` once, with a plain message like `Add carnitas; plan we
 
 If `publish --check` failed at the start of the session, there's no push access: finish the work, then give the user the changed files and the `publish` command to run where they can push.
 
+## Changing the skill
+
+`skill/recipes` is the skill people install in chat apps. Only after editing it, run `skill/zip.sh` and tell the user to upload `skill/recipes.zip` again.
+
 ## Changing the tool
 
 Run what CI runs: `uv run ruff check`, `uv run ruff format --check`, `uv run ty check`, and `uv run pytest`.
