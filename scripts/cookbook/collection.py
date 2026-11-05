@@ -408,7 +408,8 @@ def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str 
                 **({"pairs": links[r["slug"]]} if links.get(r["slug"]) else {}),
                 "last_cooked": max(history.get(r["slug"], []), default=None),
                 "times_cooked": len(history.get(r["slug"], [])),
-                "added": added.get(r["path"]),
+                "added": added[r["path"]][:10] if r["path"] in added else None,
+                "added_at": added.get(r["path"]),
             }
             for r in sorted(recipes, key=lambda r: r["slug"])
         ],
@@ -484,7 +485,7 @@ def _pairs_both_ways(recipes: list[dict]) -> dict[str, list[str]]:
 
 
 def _added(root: Path) -> dict[str, str]:
-    """The date each recipe file first entered git history, following renames.
+    """When each recipe file first entered git history, as an ISO 8601 author time, following renames.
     Empty in a shallow clone, where every file would look added by its oldest commit."""
     try:
         shallow = subprocess.run(
@@ -500,7 +501,7 @@ def _added(root: Path) -> dict[str, str]:
                 "-M",
                 "--diff-filter=AR",
                 "--name-status",
-                "--format=%x00%as",
+                "--format=%x00%aI",
                 "--",
                 *DIRS.values(),
             ],
@@ -511,15 +512,15 @@ def _added(root: Path) -> dict[str, str]:
     except OSError:
         return {}
     added: dict[str, str] = {}
-    day = ""
+    when = ""
     for line in log.stdout.splitlines():
         if line.startswith("\0"):
-            day = line[1:]
+            when = line[1:]
         elif line.startswith("A\t"):
-            added[line[2:]] = day
+            added[line[2:]] = when
         elif line.startswith("R"):
             _, old, new = line.split("\t")
-            added[new] = added.pop(old, day)
+            added[new] = added.pop(old, when)
     return added
 
 

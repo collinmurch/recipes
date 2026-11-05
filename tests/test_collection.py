@@ -290,6 +290,9 @@ def test_recipes_are_dated_by_their_first_commit_across_renames(make_repo, vocab
 
     index, _, _ = load_repo(root)
     assert {r["slug"]: r["added"] for r in index["recipes"]} == {"pork-tacos": "2026-10-01", "lime-tacos": None}
+    times = {r["slug"]: r["added_at"] for r in index["recipes"]}
+    assert times["lime-tacos"] is None
+    assert times["pork-tacos"].startswith("2026-10-01T12:00:00")
 
 
 def test_recipes_are_undated_outside_git(make_repo, vocab_text):
@@ -298,3 +301,4 @@ def test_recipes_are_undated_outside_git(make_repo, vocab_text):
     )
     index, _, _ = load_repo(root)
     assert index["recipes"][0]["added"] is None
+    assert index["recipes"][0]["added_at"] is None

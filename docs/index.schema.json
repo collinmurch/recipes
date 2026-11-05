@@ -59,7 +59,7 @@
       "description": "One .cook file. Frontmatter fields appear only when set.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["slug", "kind", "path", "title", "course", "servings", "proteins", "ingredients", "cookware", "sections", "last_cooked", "times_cooked", "added"],
+      "required": ["slug", "kind", "path", "title", "course", "servings", "proteins", "ingredients", "cookware", "sections", "last_cooked", "times_cooked", "added", "added_at"],
       "properties": {
         "slug": { "$ref": "#/$defs/slug", "description": "The file name without .cook; the recipe's id and URL segment." },
         "kind": { "description": "\"drink\" for files in drinks/, otherwise \"recipe\".", "enum": ["recipe", "drink"] },
@@ -82,7 +82,8 @@
         "sections": { "description": "The method: steps and notes, grouped by section.", "type": "array", "items": { "$ref": "#/$defs/section" } },
         "last_cooked": { "description": "The latest cooked date across all plans, or null if never.", "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] },
         "times_cooked": { "description": "How many times plans record it as cooked.", "type": "integer", "minimum": 0 },
-        "added": { "description": "When the recipe file was first committed, following renames; null if it isn't committed yet or the build ran without full git history.", "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] }
+        "added": { "description": "When the recipe file was first committed, following renames; null if it isn't committed yet or the build ran without full git history.", "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] },
+        "added_at": { "description": "The full time of that first commit, ISO 8601 with its offset (2026-11-04T16:36:45-05:00), so feeds can date new recipes exactly; null exactly when added is.", "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] }
       }
     },
     "ingredientGroup": {
