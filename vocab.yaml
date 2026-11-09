@@ -4,6 +4,7 @@ produce:
   avocado: {}
   basil: {aka: [fresh basil]}
   brussels-sprout: {}
+  carrot: {}
   celery: {}
   cherry-tomato: {}
   cilantro: {aka: [coriander, fresh cilantro]}
@@ -14,6 +15,7 @@ produce:
   green-bean: {}
   green-bell-pepper: {}
   jalapeno: {}
+  lacinato-kale: {aka: [kale, tuscan-kale]}
   lemon: {}
   lime: {}
   mushroom: {aka: [baby bella, cremini, mixed mushrooms]}
@@ -38,6 +40,7 @@ meat:
   chicken-breast: {aka: [boneless skinless chicken breast], protein: chicken}
   chicken-thigh: {protein: chicken}
   chicken-wing: {protein: chicken}
+  italian-sausage: {protein: pork}
   pork-chop: {protein: pork}
   pork-shoulder: {aka: [boston butt, pork butt], protein: pork}
 
@@ -67,6 +70,7 @@ aisles:
   artichoke-heart: {}
   balsamic-glaze: {}
   beef-broth: {aka: [beef stock]}
+  brown-lentil: {}
   cannellini-bean: {}
   chicken-broth: {aka: [chicken stock]}
   coconut-milk: {}
