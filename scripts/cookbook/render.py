@@ -87,7 +87,8 @@ def grocery_list(sections: list[dict], title: str) -> str:
     for section in (s for s in sections if not s["staple"]):
         out += [f"## {humanize(section['name'])}", ""]
         for item in section["items"]:
-            amount = f" — {item['amount']}" if item["amount"] else ""
+            amount = f"{item['buy']} ({item['amount']})" if item["buy"] else item["amount"]
+            amount = f" — {amount}" if amount else ""
             optional = " (optional)" if item["optional"] else ""
             shared = f" · {', '.join(item['recipes'])}" if len(item["recipes"]) > 1 else ""
             out.append(f"- [ ] {humanize(item['name'])}{amount}{optional}{shared}")

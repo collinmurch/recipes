@@ -25,6 +25,7 @@ from .collection import (
     is_slug,
     slugify,
 )
+from .units import Pack
 from .vocab import humanize
 
 
@@ -92,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     grocery = command("grocery", cmd_grocery, "one shopping list for several recipes", as_json=True)
     grocery.add_argument("picks", nargs="*", metavar="name[:servings]")
     grocery.add_argument("--plan", metavar="ID", help="use a plan's uncooked meals")
+    grocery.add_argument("--have", action="append", default=[], metavar="NAME", help="leave off; repeatable")
 
     validate = command("validate", cmd_validate, "check drafts, or the whole repo")
     validate.add_argument("files", nargs="*")
@@ -113,11 +115,16 @@ def build_parser() -> argparse.ArgumentParser:
     vadd.add_argument("--section", required=True)
     vadd.add_argument("--aka", action="append", default=[], metavar="ALIAS", help="repeatable")
     vadd.add_argument("--protein")
+    vadd.add_argument("--buy", type=pack, metavar="PACK", help='how the store sells it, like "carton of 4 cups"')
     vadd.set_defaults(run=cmd_vocab_add)
     valias = actions.add_parser("alias", help="add other names for an entry")
     valias.add_argument("name")
     valias.add_argument("aliases", nargs="+")
     valias.set_defaults(run=cmd_vocab_alias)
+    vbuy = actions.add_parser("buy", help='set how the store sells an entry, like "carton of 4 cups"')
+    vbuy.add_argument("name")
+    vbuy.add_argument("pack", type=pack_or_none, help='"<container> of <amount>", or "none" to clear')
+    vbuy.set_defaults(run=cmd_vocab_buy)
     vmove = actions.add_parser("move", help="move entries to another section")
     vmove.add_argument("names", nargs="+")
     vmove.add_argument("--section", required=True)
@@ -127,8 +134,11 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("picks", nargs="*", metavar="name[:servings]")
     plan.add_argument("--start", type=iso_date, help="the plan's first day (default: this Monday)")
     plan.add_argument("--name", type=slug, help="for a one-off plan, like dinner-party")
+    plan.add_argument("--extra", action="append", default=[], metavar="NAME", help="also buy; repeatable")
+    plan.add_argument("--have", action="append", default=[], metavar="NAME", help="already have; repeatable")
+    plan.add_argument("--drop", action="append", default=[], metavar="RECIPE", help="a meal we didn't make")
 
-    cooked = command("cooked", cmd_cooked, "mark a meal cooked")
+    cooked = command("cooked", cmd_cooked, "log a meal cooked on another day, or one we didn't plan")
     cooked.add_argument("name")
     cooked.add_argument("--date", type=iso_date, help="default: today")
     cooked.add_argument("--plan", metavar="ID")
@@ -152,6 +162,17 @@ def slug(value: str) -> str:
     if not is_slug(value):
         raise argparse.ArgumentTypeError("should be lowercase words joined by hyphens")
     return value
+
+
+def pack(value: str) -> Pack:
+    try:
+        return Pack.parse(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e)) from None
+
+
+def pack_or_none(value: str) -> Pack | None:
+    return None if value == "none" else pack(value)
 
 
 def positive(value: str) -> int | float:
@@ -281,13 +302,12 @@ def cmd_grocery(c: Collection, args) -> None:
         plan = c.plan(args.plan)
         if not plan:
             raise Exit(f'no plan "{args.plan}"')
-        for meal in plan["meals"]:
-            if not is_cooked(meal):
-                resolve(c, meal["recipe"])
-        sections, title = plan["groceries"], plan_title(plan)
+        picks = [(resolve(c, m["recipe"]), m.get("servings")) for m in plan["meals"] if not is_cooked(m, plan["id"])]
+        sections = groceries(picks, c.vocab, plan["extras"], [*plan["have"], *args.have])
+        title = plan_title(plan)
     elif args.picks:
         picks = [(resolve(c, name), servings) for name, servings in map(parse_pick, args.picks)]
-        sections = groceries(picks, c.vocab)
+        sections = groceries(picks, c.vocab, have=args.have)
         title = ", ".join(r.get("title", r["slug"]) for r, _ in picks)
     else:
         raise Exit("grocery needs recipe names or --plan <id>")
@@ -360,7 +380,7 @@ def cmd_vocab_add(c: Collection, args) -> None:
     if len(args.names) > 1 and args.aka:
         raise Exit("--aka applies to one name at a time")
     for name in args.names:
-        added = c.vocab.add(name, args.section, args.aka, args.protein)
+        added = c.vocab.add(name, args.section, args.aka, args.protein, args.buy)
         out(f"added {added} to {args.section}")
     save_vocab(c)
 
@@ -368,6 +388,12 @@ def cmd_vocab_add(c: Collection, args) -> None:
 def cmd_vocab_alias(c: Collection, args) -> None:
     target = c.vocab.alias(args.name, args.aliases)
     out(f"{', '.join(args.aliases)} → {target}")
+    save_vocab(c)
+
+
+def cmd_vocab_buy(c: Collection, args) -> None:
+    name = c.vocab.set_buy(args.name, args.pack)
+    out(f"{name}: buy by the {args.pack}" if args.pack else f"{name}: no pack size")
     save_vocab(c)
 
 
@@ -385,14 +411,22 @@ def cmd_plan(c: Collection, args) -> None:
     start = args.start or monday(date.today().isoformat())
     plan_id = f"{start}-{args.name}" if args.name else start
     plan = PlanFile.read(c, plan_id)
+    for name in args.drop:
+        meal = next((m for m in reversed(plan.meals) if m.get("recipe") == name), None)
+        if not meal:
+            raise Exit(f'{c.relative(plan.path)} has no "{name}"; pass --start to pick another week')
+        plan.meals.remove(meal)
     for name, servings in map(parse_pick, args.picks):
         resolve(c, name)
         plan.meals.append({"recipe": name, "servings": servings} if servings else {"recipe": name})
+    for key, names in (("extras", args.extra), ("have", args.have)):
+        if names:
+            plan.data[key] = list(dict.fromkeys([*plan.data.get(key, []), *names]))
     plan.write()
     out(f"wrote {c.relative(plan.path)}")
-    picks = [(resolve(c, m["recipe"]), m.get("servings")) for m in plan.meals if not is_cooked(m)]
-    if picks:
-        sections = groceries(picks, c.vocab, plan.data.get("extras", []))
+    picks = [(resolve(c, m["recipe"]), m.get("servings")) for m in plan.meals if not is_cooked(m, plan_id)]
+    if picks or plan.data.get("extras"):
+        sections = groceries(picks, c.vocab, plan.data.get("extras", []), plan.data.get("have", []))
         out()
         out(render.grocery_list(sections, f"Groceries: {plan_title({**plan.data, 'id': plan_id})}"))
 
@@ -403,9 +437,12 @@ def cmd_cooked(c: Collection, args) -> None:
     # The given plan, or else the latest plans that had started by then.
     started = [p["id"] for p in reversed(c.plans) if p["start"] and p["start"] <= when]
     candidates = [args.plan] if args.plan else started
+    today = date.today().isoformat()
     for plan_id in candidates:
         plan = PlanFile.read(c, plan_id)
-        meal = next((m for m in plan.meals if m.get("recipe") == args.name and not is_cooked(m)), None)
+        # A meal without its own date is open to logging, even once its plan is over.
+        open_meals = (m for m in plan.meals if not is_date(m.get("date")) or m["date"] > today)
+        meal = next((m for m in open_meals if m.get("recipe") == args.name), None)
         if meal:
             meal["date"] = when
             plan.write()
@@ -535,7 +572,7 @@ class PlanFile:
     body: str = ""
     meals: list[dict] = field(default_factory=list)
 
-    KEYS = ("title", "spent", "extras", "meals")
+    KEYS = ("title", "spent", "extras", "have", "meals")
     MEAL_KEYS = ("recipe", "date", "servings", "note")
 
     @classmethod

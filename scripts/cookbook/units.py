@@ -5,6 +5,7 @@ Numbers are kept as exact fractions, so a third of a cup tripled is one cup.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
@@ -39,11 +40,15 @@ MEASURED = {
 }
 
 COUNTED = {
+    "bag": "bags",
     "barspoon": "barspoons",
     "bottle": "bottles",
+    "box": "boxes",
     "bunch": "bunches",
     "can": "cans",
+    "carton": "cartons",
     "clove": "cloves",
+    "container": "containers",
     "dash": "dashes",
     "drop": "drops",
     "handful": "handfuls",
@@ -52,6 +57,8 @@ COUNTED = {
     "jar": "jars",
     "knob": "knobs",
     "leaf": "leaves",
+    "loaf": "loaves",
+    "pack": "packs",
     "package": "packages",
     "piece": "pieces",
     "pinch": "pinches",
@@ -61,6 +68,7 @@ COUNTED = {
     "stalk": "stalks",
     "stick": "sticks",
     "strip": "strips",
+    "tub": "tubs",
     "wedge": "wedges",
 }
 
@@ -270,3 +278,76 @@ def total(amounts: Iterable[Amount]) -> list[Amount]:
 def describe(amounts: Iterable[Amount]) -> str:
     """Formats several amounts of one thing: "1 lb + 2 cups"."""
     return " + ".join(str(a) for a in amounts if a)
+
+
+_WRITTEN = re.compile(r"(\d+\s+\d+\s*/\s*\d+|\d+\s*/\s*\d+|\d+(?:\.\d+)?|\.\d+)\s*(.*)")
+
+
+@dataclass(frozen=True)
+class Pack:
+    """How the store sells something, like "carton of 4 cups" or "head of 10 cloves"."""
+
+    unit: str
+    size: Fraction
+    size_unit: str | None
+
+    @classmethod
+    def parse(cls, text: str) -> Pack:
+        """Reads "<counted unit> of <amount>"; raises ValueError saying what's wrong."""
+        m = re.fullmatch(r"\s*(.+?)\s+of\s+(.+?)\s*", str(text))
+        if not m:
+            raise ValueError(f'"{text}" should read like "carton of 4 cups" or "bag of 6"')
+        unit = canonical_unit(m[1])
+        if unit not in COUNTED:
+            raise ValueError(f'"{m[1]}" is not a container; use one of {", ".join(COUNTED)}')
+        size = _WRITTEN.fullmatch(m[2].strip())
+        value = _number(size[1]) if size else None
+        if not size or not value:
+            raise ValueError(f'"{m[2]}" should be a number and a unit, like "4 cups"')
+        size_unit = canonical_unit(size[2]) if size[2] else None
+        if size[2] and not size_unit:
+            raise ValueError(f'unknown unit "{size[2]}"')
+        return cls(unit, value, size_unit)
+
+    def __str__(self) -> str:
+        return f"{self.unit} of {Amount(Quantity(value=self.size), self.size_unit)}"
+
+    def count(self, amount: Amount) -> Fraction | None:
+        """How many packs an amount fills, or None if it can't be compared."""
+        if not amount:
+            return Fraction(0)
+        if amount.quantity is None or amount.quantity.value is None:
+            return None
+        value, unit = amount.quantity.value, canonical_unit(amount.unit)
+        size, size_unit = self.size, self.size_unit
+        if unit == self.unit:
+            return value
+        if unit == size_unit:
+            return value / size
+        if unit in MEASURED and size_unit in MEASURED and MEASURED[unit].kind == MEASURED[size_unit].kind:
+            return value * MEASURED[unit].size / (size * MEASURED[size_unit].size)
+        return None
+
+
+def to_buy(amounts: list[Amount], pack: Pack | None = None) -> list[Amount] | None:
+    """What to pick up for a total (from total()): whole packs when there's a pack
+    size, and whole items for a bare count like 4 1/2 limes. Amounts a pack can't
+    hold are kept as they are. None when the total already reads as what to buy."""
+    if pack is None:
+        if len(amounts) == 1 and amounts[0].unit is None and amounts[0].quantity:
+            value = amounts[0].quantity.value
+            if value is not None and value.denominator != 1:
+                return [Amount(Quantity(value=Fraction(math.ceil(value))))]
+        return None
+    packs, rest, fits = Fraction(0), [], False
+    for amount in amounts:
+        n = pack.count(amount)
+        if n is None:
+            rest.append(amount)
+        else:
+            packs, fits = packs + n, True
+    if not fits:
+        return None
+    # Exact sums of converted units can land a hair above a whole pack.
+    whole = max(1, math.ceil(packs - Fraction(1, 100)))
+    return [Amount(Quantity(value=Fraction(whole)), pack.unit), *rest]

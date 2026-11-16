@@ -8,10 +8,10 @@ produce:
   carrot: {}
   celery: {}
   cherry-tomato: {}
-  cilantro: {aka: [coriander, fresh cilantro]}
+  cilantro: {aka: [coriander, fresh cilantro], buy: bunch of 1 cup}
   cucumber: {}
   fingerling-potato: {}
-  garlic: {}
+  garlic: {buy: head of 10 cloves}
   ginger: {aka: [fresh ginger, ginger root]}
   green-bean: {}
   green-bell-pepper: {}
@@ -22,7 +22,7 @@ produce:
   mint: {}
   mushroom: {aka: [baby bella, cremini, mixed mushrooms]}
   orange: {}
-  parsley: {aka: [flat-leaf parsley, fresh parsley, italian parsley]}
+  parsley: {aka: [flat-leaf parsley, fresh parsley, italian parsley], buy: bunch of 1 cup}
   peach: {}
   red-bell-pepper: {}
   red-onion: {}
@@ -73,11 +73,11 @@ bakery:
 aisles:
   artichoke-heart: {}
   balsamic-glaze: {}
-  beef-broth: {aka: [beef stock]}
+  beef-broth: {aka: [beef stock], buy: carton of 4 cups}
   black-bean: {}
   brown-lentil: {}
   cannellini-bean: {}
-  chicken-broth: {aka: [chicken stock]}
+  chicken-broth: {aka: [chicken stock], buy: carton of 4 cups}
   chickpea: {}
   coconut-milk: {}
   jasmine-rice: {}

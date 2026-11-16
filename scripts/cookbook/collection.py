@@ -8,14 +8,14 @@ import re
 import subprocess
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from fractions import Fraction
 from pathlib import Path
 
 from . import cooklang, yamlio
 from .cooklang import Cookware, Ingredient, Note, Text, Timer
-from .units import Amount, canonical_unit, describe, total, units_json
-from .vocab import Vocab, normalize, words
+from .units import Amount, canonical_unit, describe, to_buy, total, units_json
+from .vocab import Entry, Vocab, normalize, words
 
 SCHEMA = 2
 """Version of the index format. It changes only when a field is removed or changes meaning."""
@@ -45,9 +45,22 @@ def is_minutes(v) -> bool:
     return isinstance(v, int) and not isinstance(v, bool) and v > 0
 
 
-def is_cooked(meal: dict, today: str | None = None) -> bool:
-    """A meal's date is when it's planned until that day comes, then when it was cooked."""
-    return is_date(meal.get("date")) and meal["date"] <= (today or date.today().isoformat())
+def meal_date(meal: dict, plan_id: str) -> str | None:
+    """When a meal is planned, and once that day comes, when it was cooked. A meal
+    with no date of its own takes its plan's last day: the Sunday of a week, or the
+    day of a one-off. So a plan counts as made once it's over, without asking."""
+    if is_date(meal.get("date")):
+        return meal["date"]
+    match = PLAN_ID.fullmatch(plan_id)
+    if not match or not is_date(match[1]):
+        return None
+    start = date.fromisoformat(match[1])
+    return (start if match[2] else start + timedelta(days=6)).isoformat()
+
+
+def is_cooked(meal: dict, plan_id: str, today: str | None = None) -> bool:
+    when = meal_date(meal, plan_id)
+    return when is not None and when <= (today or date.today().isoformat())
 
 
 def is_date(v) -> bool:
@@ -83,7 +96,7 @@ FIELDS = {
     "pairs": Field(lambda v: isinstance(v, list) and all(map(is_slug, v)), "a list of recipe names"),
 }
 
-PLAN_FIELDS = ("title", "spent", "extras", "meals")
+PLAN_FIELDS = ("title", "spent", "extras", "have", "meals")
 MEAL_FIELDS = ("recipe", "date", "servings", "note")
 
 
@@ -284,10 +297,12 @@ def compile_plan(path: str, text: str) -> tuple[dict, list[Problem]]:
         report("title should be text")
     if "spent" in data and not (is_number(data["spent"]) or data["spent"] == 0):
         report("spent should be a number")
-    extras = data.get("extras", [])
-    if not (isinstance(extras, list) and all(map(is_text, extras))):
-        report("extras should be a list of names")
-        extras = []
+    lists = {}
+    for key in ("extras", "have"):
+        lists[key] = data.get(key, [])
+        if not (isinstance(lists[key], list) and all(map(is_text, lists[key]))):
+            report(f"{key} should be a list of names")
+            lists[key] = []
     meals = data.get("meals", [])
     if not isinstance(meals, list):
         report("meals should be a list")
@@ -317,7 +332,8 @@ def compile_plan(path: str, text: str) -> tuple[dict, list[Problem]]:
         "name": match[2] if match else None,
         "title": data.get("title"),
         "spent": data.get("spent"),
-        "extras": extras,
+        "extras": lists["extras"],
+        "have": lists["have"],
         "meals": [m for m in meals if isinstance(m, dict)],
         "notes": doc.body.strip(),
     }
@@ -388,17 +404,18 @@ def _assemble(recipes: list[dict], plans: list[dict], vocab: Vocab, commit: str 
     history: dict[str, list[str]] = {}
     for plan in plans:
         for meal in plan["meals"]:
-            if is_cooked(meal, today):
-                history.setdefault(meal.get("recipe"), []).append(meal["date"])
+            when = meal_date(meal, plan["id"])
+            if when and when <= today:
+                history.setdefault(meal.get("recipe"), []).append(when)
     links = _pairs_both_ways(recipes)
     by_slug = {r["slug"]: r for r in recipes}
     for plan in plans:
         picks = [
             (by_slug[m["recipe"]], m.get("servings"))
             for m in plan["meals"]
-            if not is_cooked(m, today) and m.get("recipe") in by_slug
+            if not is_cooked(m, plan["id"], today) and m.get("recipe") in by_slug
         ]
-        plan["groceries"] = groceries(picks, vocab, plan["extras"])
+        plan["groceries"] = groceries(picks, vocab, plan["extras"], plan["have"])
     return {
         "schema": SCHEMA,
         "commit": commit,
@@ -429,22 +446,36 @@ def factor(recipe: dict, servings: float | None) -> Fraction:
 class GroceryLine:
     name: str
     section: str
+    entry: Entry | None = None
     amounts: list[Amount] = field(default_factory=list)
     recipes: list[str] = field(default_factory=list)
     optional: bool = True
 
     def to_json(self) -> dict:
-        amounts = [a for a in total(self.amounts) if a]
-        return {"name": self.name, "amount": describe(amounts), "recipes": self.recipes, "optional": self.optional}
+        totals = total(self.amounts)
+        buy = to_buy(totals, self.entry.buy if self.entry else None)
+        return {
+            "name": self.name,
+            "amount": describe(a for a in totals if a),
+            "buy": describe(buy) if buy else None,
+            "recipes": self.recipes,
+            "optional": self.optional,
+        }
 
 
-def groceries(picks: list[tuple[dict, float | None]], vocab: Vocab, extras: Iterable[str] = ()) -> list[dict]:
-    """One shopping list for (recipe, servings) picks plus free-form extras,
-    grouped by section in store order. Unknown names land in "other"."""
+def groceries(
+    picks: list[tuple[dict, float | None]],
+    vocab: Vocab,
+    extras: Iterable[str] = (),
+    have: Iterable[str] = (),
+) -> list[dict]:
+    """One shopping list for (recipe, servings) picks plus free-form extras, less
+    what we have, grouped by section in store order. Unknown names land in "other".
+    Optional uses add to an item's total; it's optional only if every use is."""
     lines: dict[str, GroceryLine] = {}
 
     def add(key, name, section, optional, amounts=(), recipe=None):
-        line = lines.setdefault(key, GroceryLine(name, section))
+        line = lines.setdefault(key, GroceryLine(name, section, vocab.entries.get(key)))
         line.amounts += amounts
         line.optional = line.optional and optional
         if recipe and recipe not in line.recipes:
@@ -466,6 +497,10 @@ def groceries(picks: list[tuple[dict, float | None]], vocab: Vocab, extras: Iter
             entry.section if entry else "other",
             False,
         )
+
+    for name in have:
+        entry = vocab.lookup(name)
+        lines.pop(entry.name if entry else normalize(name), None)
 
     order = [s.name for s in vocab.sections] + ["other"]
     staples = {s.name for s in vocab.sections if s.staple}

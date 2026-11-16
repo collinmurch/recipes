@@ -76,15 +76,16 @@ Steps show only the name: `Dice @red onion{1/2}` reads "Dice red onion", and the
 ```yaml
 produce:
   scallion: {aka: [green onion, spring onion]}
+  garlic: {buy: head of 10 cloves}
 meat:
   pork-shoulder: {aka: [pork butt], protein: pork}
 pantry:
   cumin: {}
 ```
 
-Names are lowercase, hyphenated, and singular. `aka` lists other names for the same thing. Case, accents, hyphens, and plurals resolve automatically ("Jalapeños" is `jalapeno`), so never alias those. `protein` (`chicken`, `beef`, `pork`, `fish`, and so on) drives `find --protein`. Items in `pantry` and `bar` are things we always have, so they're left off shopping lists and shown as a checklist instead.
+Names are lowercase, hyphenated, and singular. `aka` lists other names for the same thing. Case, accents, hyphens, and plurals resolve automatically ("Jalapeños" is `jalapeno`), so never alias those. `protein` (`chicken`, `beef`, `pork`, `fish`, and so on) drives `find --protein`. `buy` says how the store sells it, as `<container> of <amount>` (`carton of 4 cups`, `bunch of 1 cup`, `bag of 6`), so the grocery list rounds up to whole packs: 7 cups of broth reads "2 cartons (7 cups)". Without one, a bare count still rounds up, so 4½ limes reads "5 (4 1/2)". Items in `pantry` and `bar` are things we always have, so they're left off shopping lists and shown as a checklist instead.
 
-The sections are `produce`, `meat`, `seafood`, `deli`, `dairy`, `bakery`, `aisles` (shelf-stable groceries we buy for a specific dish, like broth, beans, and coconut milk), `frozen`, `liquor` (wine and beer for cooking), `pantry` (anything we keep on hand and restock, not buy per recipe: spices, oils, vinegars, pastes and sauces, canned tomatoes, specialty rice), and `bar` (spirits, bitters, garnishes). Always edit the vocab with `vocab add`, `vocab alias`, and `vocab move`, never by hand; they keep it sorted and refuse duplicates.
+The sections are `produce`, `meat`, `seafood`, `deli`, `dairy`, `bakery`, `aisles` (shelf-stable groceries we buy for a specific dish, like broth, beans, and coconut milk), `frozen`, `liquor` (wine and beer for cooking), `pantry` (anything we keep on hand and restock, not buy per recipe: spices, oils, vinegars, pastes and sauces, canned tomatoes, specialty rice), and `bar` (spirits, bitters, garnishes). Always edit the vocab with `vocab add`, `vocab alias`, `vocab buy`, and `vocab move`, never by hand; they keep it sorted and refuse duplicates.
 
 ## Plans
 
@@ -95,6 +96,7 @@ The sections are `produce`, `meat`, `seafood`, `deli`, `dairy`, `bakery`, `aisle
 title: Soup week
 spent: 142.18
 extras: [paper towels, sparkling water]
+have: [ginger, shallot]
 meals:
   - recipe: pork-carnitas
     date: 2026-10-13
@@ -106,7 +108,7 @@ meals:
 Free-form notes about the week.
 ```
 
-Only `meals[].recipe` is required. `date` is when it's planned, and once that day comes it counts as when it was cooked. A meal with no date, or a date still ahead, isn't cooked yet; `cooked <name>` sets the date when it's made on a different day. The grocery list isn't stored in the file: `build` computes it from the uncooked meals plus `extras` and puts it in the bundle for the site, and `grocery --plan <id>` prints the same list.
+Only `meals[].recipe` is required. A planned meal counts as made once its day passes, so there's nothing to log: `date` is the day it's planned, and a meal without one is planned for the plan's last day (the Sunday of a week, or the day of a one-off). `cooked <name> --date <day>` records the real day when it matters, and `plan --drop <name>` removes a meal that didn't happen. `extras` are other things to buy and `have` are things already in the kitchen; set them with `plan --extra` and `plan --have`. The grocery list isn't stored in the file: `build` computes it from the meals still ahead plus `extras`, less `have`, and puts it in the bundle for the site, and `grocery --plan <id>` prints the same list.
 
 ## House style
 

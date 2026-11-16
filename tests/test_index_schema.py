@@ -12,7 +12,7 @@ SCHEMA = json.loads((REPO / "docs/index.schema.json").read_text())
 VALIDATOR = Draft202012Validator(SCHEMA)
 
 VOCAB = """produce:
-  lime: {}
+  lime: {buy: bag of 6}
   scallion: {aka: [green onion]}
 
 meat:
@@ -62,6 +62,7 @@ PLAN = """---
 title: Taco week
 spent: 82.5
 extras: [paper towels]
+have: [salt]
 meals:
   - recipe: everything-tacos
     date: 2026-10-13

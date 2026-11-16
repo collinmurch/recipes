@@ -219,10 +219,10 @@ def test_vocab_list_shows_a_section(cli, repo):
 
 
 def test_plan_writes_a_week_and_its_groceries(cli, repo):
-    result = cli(repo, "plan", "tacos:6", "--start", "2026-10-12")
-    assert "wrote plans/2026-10-12.md" in result.out
+    result = cli(repo, "plan", "tacos:6", "--start", "2099-10-12")
+    assert "wrote plans/2099-10-12.md" in result.out
     assert "pork shoulder — 1.5 kg" in result.out
-    assert (repo / "plans/2026-10-12.md").read_text() == "---\nmeals:\n  - recipe: tacos\n    servings: 6\n---\n"
+    assert (repo / "plans/2099-10-12.md").read_text() == "---\nmeals:\n  - recipe: tacos\n    servings: 6\n---\n"
 
 
 def test_plan_rejects_unknown_recipes(cli, repo):
@@ -262,11 +262,79 @@ def test_cooked_rejects_a_bad_date(cli, repo):
 
 
 def test_grocery_from_a_plan_skips_cooked_meals(cli, both):
-    cli(both, "plan", "tacos", "salsa-verde", "--start", "2026-10-12")
-    cli(both, "cooked", "tacos", "--date", "2026-10-12")
-    out = cli(both, "grocery", "--plan", "2026-10-12").out
+    cli(both, "plan", "tacos", "salsa-verde")
+    cli(both, "cooked", "tacos")
+    plan_id = next((both / "plans").iterdir()).stem
+    out = cli(both, "grocery", "--plan", plan_id).out
     assert "pork shoulder" not in out
     assert "cilantro — 1/2 bunch" in out
+
+
+def test_a_past_week_counts_as_cooked_without_logging(cli, both):
+    cli(both, "plan", "tacos", "--start", "2026-10-12")
+    assert "2026-10-18" in cli(both, "find", "tacos").out
+    assert "Groceries" not in cli(both, "plan", "--start", "2026-10-12").out
+
+
+def test_cooked_still_dates_a_meal_after_its_week(cli, both):
+    cli(both, "plan", "tacos", "--start", "2026-10-12")
+    cli(both, "cooked", "tacos", "--date", "2026-10-14")
+    assert "date: 2026-10-14" in (both / "plans/2026-10-12.md").read_text()
+    assert "2026-10-14" in cli(both, "find", "tacos").out
+
+
+def test_plan_drop_removes_a_meal_we_skipped(cli, both):
+    cli(both, "plan", "tacos", "salsa-verde", "--start", "2026-10-12")
+    cli(both, "plan", "--drop", "tacos", "--start", "2026-10-12")
+    assert "tacos" not in (both / "plans/2026-10-12.md").read_text()
+    assert "never" in cli(both, "find", "tacos").out
+
+
+def test_plan_drop_rejects_a_meal_not_in_the_plan(cli, both):
+    cli(both, "plan", "salsa-verde", "--start", "2026-10-12")
+    assert cli(both, "plan", "--drop", "tacos", "--start", "2026-10-12").code == 1
+
+
+def test_plan_records_extras_and_what_we_have(cli, both):
+    result = cli(
+        both, "plan", "tacos", "--start", "2099-10-12", "--extra", "milk", "--extra", "lime", "--have", "cilantro"
+    )
+    text = (both / "plans/2099-10-12.md").read_text()
+    assert "extras: [milk, lime]" in text and "have: [cilantro]" in text
+    assert "- [ ] milk" in result.out
+    assert "lime — 2 · tacos" not in result.out and "cilantro" not in result.out
+    cli(both, "plan", "--start", "2099-10-12", "--extra", "milk")
+    assert "extras: [milk, lime]" in (both / "plans/2099-10-12.md").read_text()
+
+
+def test_grocery_leaves_off_what_we_have(cli, both):
+    out = cli(both, "grocery", "tacos", "salsa-verde", "--have", "cilantro", "--have", "limes").out
+    assert "cilantro" not in out and "lime" not in out
+    assert "pork shoulder" in out
+
+
+def test_grocery_rounds_up_to_packs(cli, make_repo):
+    vocab = VOCAB.replace("cilantro: {}", "cilantro: {buy: bunch of 1 cup}")
+    chili = TACOS.replace("Tacos", "Chili").replace("@cilantro{1%bunch}", "@?cilantro{1/4%cup}")
+    root = make_repo(
+        {"recipes/salsa-verde.cook": SALSA.replace("pairs: [tacos]\n", ""), "recipes/chili.cook": chili}, vocab
+    )
+    out = cli(root, "grocery", "salsa-verde:6", "chili").out
+    assert "cilantro — 1 bunch (3/4 bunch + 1/4 cup)" in out
+    assert "lime — 4 (3 1/2)" in out
+
+
+def test_vocab_buy_sets_and_clears_a_pack(cli, repo):
+    assert cli(repo, "vocab", "buy", "cilantro", "bunch of 1 cup").code == 0
+    assert "cilantro: {buy: bunch of 1 cup}" in (repo / "vocab.yaml").read_text()
+    cli(repo, "vocab", "buy", "cilantro", "none")
+    assert "cilantro: {}" in (repo / "vocab.yaml").read_text()
+    assert cli(repo, "vocab", "buy", "cilantro", "a few").code == 2
+
+
+def test_vocab_add_takes_a_pack(cli, repo):
+    cli(repo, "vocab", "add", "chicken broth", "--section", "produce", "--buy", "cartons of 4 cups")
+    assert "chicken-broth: {buy: carton of 4 cups}" in (repo / "vocab.yaml").read_text()
 
 
 def test_build_writes_the_index(cli, repo):

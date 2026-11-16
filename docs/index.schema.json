@@ -205,7 +205,7 @@
       "description": "One plans/*.md file: a week, or a one-off like a dinner party.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "path", "start", "name", "title", "spent", "extras", "meals", "notes", "groceries"],
+      "required": ["id", "path", "start", "name", "title", "spent", "extras", "have", "meals", "notes", "groceries"],
       "properties": {
         "id": { "description": "The file name without .md, like 2026-10-12 or 2026-12-24-christmas-eve.", "type": "string" },
         "path": { "description": "The file's path in the repo.", "type": "string" },
@@ -214,6 +214,7 @@
         "title": { "description": "An optional title.", "type": ["string", "null"] },
         "spent": { "description": "What the shopping cost, if recorded.", "type": ["number", "null"] },
         "extras": { "description": "Other things to buy, placed by the vocab when they match.", "type": "array", "items": { "type": "string" } },
+        "have": { "description": "Things already in the kitchen, left off the grocery list.", "type": "array", "items": { "type": "string" } },
         "meals": { "description": "What's planned and what was cooked.", "type": "array", "items": { "$ref": "#/$defs/meal" } },
         "notes": { "description": "The Markdown body, trimmed.", "type": "string" },
         "groceries": { "description": "The shopping list for the uncooked meals plus extras, as the grocery command prints it. Sections in store order; empty when everything is cooked.", "type": "array", "items": { "$ref": "#/$defs/grocerySection" } }
@@ -226,7 +227,7 @@
       "required": ["recipe"],
       "properties": {
         "recipe": { "$ref": "#/$defs/slug", "description": "The recipe's slug." },
-        "date": { "$ref": "#/$defs/date", "description": "When it's planned. Once that day has come, it counts as cooked on it." },
+        "date": { "$ref": "#/$defs/date", "description": "When it's planned. Once that day has come, it counts as cooked on it. A meal without one counts as cooked on the plan's last day: the Sunday of a week, or the day of a one-off." },
         "servings": { "description": "Servings to make, if not the recipe's own.", "type": "number", "exclusiveMinimum": 0 },
         "note": { "description": "Anything worth remembering.", "type": "string" }
       }
@@ -246,10 +247,11 @@
       "description": "One thing to buy, totaled across the plan's recipes.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "amount", "recipes", "optional"],
+      "required": ["name", "amount", "buy", "recipes", "optional"],
       "properties": {
         "name": { "description": "The vocab name, or the text as written for anything else.", "type": "string" },
         "amount": { "description": "The total, ready to display, like 1 1/2 bunches; empty when no recipe gave one.", "type": "string" },
+        "buy": { "description": "What to pick up when it differs from amount, ready to display: whole packs from the vocab's buy, like 2 cartons for 7 cups, or a bare count rounded up, like 5 for 4 1/2.", "type": ["string", "null"] },
         "recipes": { "description": "The recipes that use it; empty for an extra.", "type": "array", "items": { "$ref": "#/$defs/slug" } },
         "optional": { "description": "True when every use is optional, such as a garnish.", "type": "boolean" }
       }
@@ -273,7 +275,8 @@
       "properties": {
         "name": { "description": "Lowercase, hyphenated, singular: green-onion style.", "type": "string" },
         "aka": { "description": "Other names that mean this entry.", "type": "array", "items": { "type": "string" } },
-        "protein": { "description": "The protein it counts as, like pork.", "type": "string" }
+        "protein": { "description": "The protein it counts as, like pork.", "type": "string" },
+        "buy": { "description": "How the store sells it, like carton of 4 cups.", "type": "string" }
       }
     }
   }

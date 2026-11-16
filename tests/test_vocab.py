@@ -195,3 +195,9 @@ def test_json_marks_staples(vocab):
         ("aisles", False),
         ("pantry", True),
     ]
+
+
+def test_check_flags_a_pack_it_cant_read():
+    vocab = Vocab.parse("aisles:\n  chicken-broth: {buy: lots}\n")
+    assert vocab.check() == ['"chicken-broth": buy "lots" should read like "carton of 4 cups" or "bag of 6"']
+    assert vocab.entries["chicken-broth"].buy is None

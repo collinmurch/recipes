@@ -18,15 +18,16 @@ Use it for anything it has a command for instead of editing `vocab.yaml` or plan
 |---|---|
 | `find [words…]` | Search. Filters: `--course`, `--cuisine`, `--protein` (or `none`), `--tag`, `--uses <ingredient>` (repeatable), `--max-time <min>`, `--not-since <YYYY-MM-DD>`, `--kind recipe\|drink`. `--sort title\|cooked\|time`; shows 20 unless `--limit <n>` (0 for all) |
 | `show <name\|file>…` | Show recipes, or preview drafts, as they'll look on the site. Drafts shown together can pair with each other. `--servings <n>` scales them |
-| `grocery <name[:servings]>…` | One shopping list for several recipes, grouped by store section. `--plan <id>` uses a plan's uncooked meals |
+| `grocery <name[:servings]>…` | One shopping list for several recipes, grouped by store section, in store packs where the vocab knows them. `--plan <id>` uses a plan's meals still ahead; `--have <name>` (repeatable) leaves something off |
 | `validate [files…]` | Check drafts, or the whole repo when no files are given. Exit 1 means errors |
 | `save <files…>` | Check drafts together, name each from its title, and file it in `recipes/` or `drinks/` |
 | `vocab find <name>` / `vocab list [section]` | Look up ingredient names |
-| `vocab add <name…> --section <s>` | Add ingredients. `--aka <alias>` (repeatable) and `--protein <p>` |
+| `vocab add <name…> --section <s>` | Add ingredients. `--aka <alias>` (repeatable), `--protein <p>`, and `--buy "<pack>"` |
 | `vocab alias <name> <alias…>` | Add other names for an entry |
+| `vocab buy <name> "<pack>"` | How the store sells it, like `"carton of 4 cups"`, so grocery rounds up to whole packs. `none` clears it |
 | `vocab move <name…> --section <s>` | Move entries to another section |
-| `plan <name[:servings]>…` | Start or add to `plans/<monday>.md`. `--start <date>`, `--name <word>` for a one-off like a dinner party |
-| `cooked <name>` | Mark a planned meal cooked, or log an unplanned one. `--date`, `--plan` |
+| `plan <name[:servings]>…` | Start or add to `plans/<monday>.md`. `--extra <name>` to also buy, `--have <name>` to leave off, `--drop <name>` for a meal we didn't make (all repeatable). `--start <date>`, `--name <word>` for a one-off like a dinner party |
+| `cooked <name>` | Log the real day a planned meal was made, or an unplanned one. `--date`, `--plan` |
 | `export <name\|file…>` / `export --all` | Print recipes as schema.org Recipe JSON-LD |
 | `publish "<message>"` | Check everything, commit the recipes, drinks, plans, and vocab, pull `main` with rebase, and push. `--check` only tests push access |
 | `build [dir]` | Check everything and write the site bundle (`index.json` and `jsonld/`). CI runs it |
@@ -39,8 +40,10 @@ Query the collection through the script rather than opening files in bulk; it pr
 
 1. Look before suggesting: `find --course main --sort cooked` puts neglected favorites first, and `--uses cilantro` finds dishes that share a perishable.
 2. Build the week around shared ingredients, so one bunch of herbs or one pack of chicken covers two dinners. Pay attention to `leftovers`: a "great" dish can cover lunches. Pair sides through each main's `pairs`.
-3. Once the user agrees, run `grocery a b:6 c` and show the list. Staples (pantry and bar) come out as a separate "On hand" checklist.
-4. Record it with `plan a b:6 c`.
+3. Once the user agrees, run `grocery a b:6 c` and show the list. Staples (pantry and bar) come out as a separate "On hand" checklist. If an amount reads oddly for the store (7 cups of broth, 8 cloves of garlic), give the item a pack size with `vocab buy`.
+4. Record it with `plan a b:6 c`, adding `--extra` for anything else to buy and `--have` for what's already in the kitchen.
+
+Planned meals count as cooked once their week is over, so never ask whether last week's meals got made. If the user mentions one didn't, run `plan --drop <name> --start <monday>`.
 
 ## Writing or porting a recipe
 
@@ -55,7 +58,7 @@ Query the collection through the script rather than opening files in bulk; it pr
 ## Editing and logging
 
 - To edit a recipe, change the file in place and run `validate`. If the title changed, `save recipes/<old>.cook` renames the file; then fix any `pairs` or plans that used the old name (`validate` finds them).
-- When the user says they made something, run `cooked <name>` (add `--date` if it wasn't today). "Last cooked" comes from plans, so recipe files never change because of it.
+- When the user says they made something unplanned, or on a day that matters, run `cooked <name>` (add `--date` if it wasn't today). "Last cooked" comes from plans, so recipe files never change because of it.
 
 ## Recipes for other apps
 

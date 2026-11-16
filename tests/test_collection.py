@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from cookbook.collection import compile_plan, compile_recipe, ingredient_line, load_repo, slugify
+from cookbook.collection import compile_plan, compile_recipe, ingredient_line, is_cooked, load_repo, meal_date, slugify
 from cookbook.vocab import Vocab
 
 VOCAB = Vocab.parse("""produce:
@@ -206,7 +206,17 @@ def test_load_repo_builds_cooking_history(make_repo, vocab_text):
     )
     index, _, problems = load_repo(root)
     assert problems == []
-    assert (index["recipes"][0]["last_cooked"], index["recipes"][0]["times_cooked"]) == ("2026-10-14", 2)
+    # The undated meal counts as cooked on the week's Sunday; the one in 2099 hasn't happened.
+    assert (index["recipes"][0]["last_cooked"], index["recipes"][0]["times_cooked"]) == ("2026-10-18", 3)
+
+
+def test_an_undated_meal_counts_as_cooked_once_its_plan_is_over():
+    meal = {"recipe": "tacos"}
+    assert meal_date(meal, "2026-10-12") == "2026-10-18"
+    assert meal_date(meal, "2026-10-17-party") == "2026-10-17"
+    assert meal_date({"recipe": "tacos", "date": "2026-10-13"}, "2026-10-12") == "2026-10-13"
+    assert not is_cooked(meal, "2026-10-12", today="2026-10-17")
+    assert is_cooked(meal, "2026-10-12", today="2026-10-18")
 
 
 def test_load_repo_flags_a_drink_outside_drinks(make_repo, vocab_text):

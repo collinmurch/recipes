@@ -10,4 +10,4 @@ Our recipes live in the GitHub repo [collinmurch/recipes](https://github.com/col
 1. Not in a checkout (one has `AGENTS.md` and `vocab.yaml`)? Run `git clone --depth 1 https://github.com/collinmurch/recipes` and work inside the new folder.
 2. Follow the repo's agent instructions in `AGENTS.md` or `CLAUDE.md` (the same file). Most harnesses load one of them automatically; read `AGENTS.md` only if neither is in your context yet.
 3. Before any work that changes files, run `python3 scripts/recipes.py publish --check`. A public repo clones without access, so this is the only early sign that saving will fail.
-4. If the clone or the check fails, ask the user to give this session access to `collinmurch/recipes`. If they'd rather not, finish the work and hand over the changes at the end.
+4. If the clone or the check fails and your environment can request access to a repository, request push access to `collinmurch/recipes` yourself. Otherwise, or if that's refused, ask the user to give this session access. If they'd rather not, finish the work and hand over the changes at the end.

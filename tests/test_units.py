@@ -1,6 +1,19 @@
 from fractions import Fraction as F
 
-from cookbook.units import Amount, Quantity, canonical_unit, format_number, total, unit_kind, units_json
+import pytest
+
+from cookbook.units import (
+    Amount,
+    Pack,
+    Quantity,
+    canonical_unit,
+    describe,
+    format_number,
+    to_buy,
+    total,
+    unit_kind,
+    units_json,
+)
 
 
 def amount(text: str) -> Amount:
@@ -188,3 +201,41 @@ def test_the_units_table_shows_amounts_as_they_format():
     assert units["g"]["metric"]
     for name, unit in units.items():
         assert str(amount(f"2%{name}")) == f"2 {unit['plural'] or name}"
+
+
+def test_pack_parses_a_container_and_size():
+    pack = Pack.parse("Cartons of 4 cups")
+    assert (pack.unit, pack.size, pack.size_unit, str(pack)) == ("carton", 4, "cup", "carton of 4 cups")
+    assert str(Pack.parse("bag of 6")) == "bag of 6"
+
+
+@pytest.mark.parametrize("text", ["4 cups", "jug of 4 cups", "carton of some", "carton of 4 gallons"])
+def test_pack_rejects_what_it_cant_read(text):
+    with pytest.raises(ValueError):
+        Pack.parse(text)
+
+
+@pytest.mark.parametrize(
+    ("pack", "amounts", "buy"),
+    [
+        ("carton of 4 cups", ["7%cups"], "2 cartons"),
+        ("carton of 4 cups", ["4%cups"], "1 carton"),
+        ("carton of 4 cups", ["2%tbsp"], "1 carton"),
+        ("head of 10 cloves", ["8%cloves"], "1 head"),
+        ("head of 10 cloves", ["1%head", "4%cloves"], "2 heads"),
+        ("bunch of 1 cup", ["1/2%bunch", "1/4%cup"], "1 bunch"),
+        ("pack of 3/4 cup", ["1/2%cup"], "1 pack"),
+        ("bag of 6", ["4"], "1 bag"),
+        ("carton of 4 cups", ["1%lb"], None),
+        ("carton of 4 cups", ["3%cups", "1%lb"], "1 carton + 1 lb"),
+    ],
+)
+def test_to_buy_rounds_up_to_whole_packs(pack, amounts, buy):
+    result = to_buy(total([amount(a) for a in amounts]), Pack.parse(pack))
+    assert (describe(result) if result else None) == buy
+
+
+def test_to_buy_rounds_a_bare_count_up_and_leaves_the_rest():
+    assert describe(to_buy(total([amount("4 1/2")])) or []) == "5"
+    assert to_buy(total([amount("4")])) is None
+    assert to_buy(total([amount("1/2%cup")])) is None

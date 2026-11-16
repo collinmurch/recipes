@@ -5,15 +5,16 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from difflib import SequenceMatcher
 
 from . import yamlio
+from .units import Pack
 
 STAPLES = frozenset({"pantry", "bar"})
 """Sections we always have stocked, so they're left off shopping lists."""
 
-ENTRY_KEYS = frozenset({"aka", "protein"})
+ENTRY_KEYS = frozenset({"aka", "protein", "buy"})
 
 _KEEP = {
     "bitters",
@@ -81,6 +82,8 @@ class Entry:
     section: str
     aka: tuple[str, ...] = ()
     protein: str | None = None
+    buy: Pack | None = None
+    """How the store sells it, so the grocery list can round up to whole packs."""
 
     def to_yaml(self) -> dict:
         out = {}
@@ -88,6 +91,8 @@ class Entry:
             out["aka"] = list(self.aka)
         if self.protein:
             out["protein"] = self.protein
+        if self.buy:
+            out["buy"] = str(self.buy)
         return out
 
 
@@ -145,6 +150,7 @@ class Vocab:
                     section.name,
                     tuple(aka) if isinstance(aka, list) else (),
                     data.get("protein") if isinstance(data.get("protein"), str) else None,
+                    _pack(data.get("buy")),
                 )
                 if name in self.entries:
                     other = self.entries[name].section
@@ -186,6 +192,12 @@ class Vocab:
                 protein = (data or {}).get("protein")
                 if protein is not None and not isinstance(protein, str):
                     problems.append(f'"{name}": protein should be a word')
+                buy = (data or {}).get("buy")
+                if buy is not None:
+                    try:
+                        Pack.parse(buy)
+                    except ValueError as e:
+                        problems.append(f'"{name}": buy {e}')
         return problems
 
     def lookup(self, written: str) -> Entry | None:
@@ -217,7 +229,14 @@ class Vocab:
         known = ", ".join(s.name for s in self.sections)
         raise ValueError(f'no section "{name}"; sections are: {known}')
 
-    def add(self, written: str, section_name: str, aka: Iterable[str] = (), protein: str | None = None) -> str:
+    def add(
+        self,
+        written: str,
+        section_name: str,
+        aka: Iterable[str] = (),
+        protein: str | None = None,
+        buy: Pack | None = None,
+    ) -> str:
         """Adds an entry under its normalized name, keeping the section sorted."""
         name = normalize(written)
         if not name:
@@ -231,7 +250,7 @@ class Vocab:
             if taken := self.lookup(alias):
                 raise ValueError(f'"{alias}" already means "{taken.name}"')
         section = self.section(section_name)
-        entry = Entry(name, section_name, tuple(aliases), protein)
+        entry = Entry(name, section_name, tuple(aliases), protein, buy)
         section.items = dict(sorted({**section.items, name: entry.to_yaml()}.items()))
         self._reindex()
         return name
@@ -245,8 +264,17 @@ class Vocab:
             if taken := self.lookup(alias):
                 raise ValueError(f'"{alias}" already means "{taken.name}"')
         merged = sorted({*entry.aka, *(a.strip().lower() for a in aliases)})
-        updated = Entry(entry.name, entry.section, tuple(merged), entry.protein)
+        updated = replace(entry, aka=tuple(merged))
         self.section(entry.section).items[entry.name] = updated.to_yaml()
+        self._reindex()
+        return entry.name
+
+    def set_buy(self, written: str, buy: Pack | None) -> str:
+        """Sets or clears how the store sells an entry."""
+        entry = self.lookup(written)
+        if not entry:
+            raise ValueError(f'"{written}" is not in the vocab')
+        self.section(entry.section).items[entry.name] = replace(entry, buy=buy).to_yaml()
         self._reindex()
         return entry.name
 
@@ -261,3 +289,11 @@ class Vocab:
             target.items = dict(sorted({**target.items, entry.name: item}.items()))
             self._reindex()
         return entry.name
+
+
+def _pack(value) -> Pack | None:
+    """A readable buy value; check() reports the rest."""
+    try:
+        return Pack.parse(value) if value is not None else None
+    except ValueError:
+        return None
