@@ -4,6 +4,7 @@ produce:
   avocado: {}
   basil: {aka: [fresh basil]}
   brussels-sprout: {}
+  butter-lettuce: {aka: [bibb lettuce, boston lettuce]}
   carrot: {}
   celery: {}
   cherry-tomato: {}
@@ -18,6 +19,7 @@ produce:
   lacinato-kale: {aka: [kale, tuscan-kale]}
   lemon: {}
   lime: {}
+  mint: {}
   mushroom: {aka: [baby bella, cremini, mixed mushrooms]}
   orange: {}
   parsley: {aka: [flat-leaf parsley, fresh parsley, italian parsley]}
@@ -40,6 +42,7 @@ meat:
   chicken-breast: {aka: [boneless skinless chicken breast], protein: chicken}
   chicken-thigh: {protein: chicken}
   chicken-wing: {protein: chicken}
+  ground-turkey: {protein: turkey}
   italian-sausage: {protein: pork}
   pork-chop: {protein: pork}
   pork-shoulder: {aka: [boston butt, pork butt], protein: pork}
@@ -55,6 +58,7 @@ dairy:
   egg: {}
   feta: {aka: [feta cheese]}
   fresh-mozzarella: {aka: [mozzarella ball]}
+  greek-yogurt: {}
   heavy-cream: {aka: [heavy whipping cream]}
   parmesan: {aka: [parmigiano reggiano]}
   sliced-cheese: {aka: [cheese, cheese slice]}
@@ -70,9 +74,11 @@ aisles:
   artichoke-heart: {}
   balsamic-glaze: {}
   beef-broth: {aka: [beef stock]}
+  black-bean: {}
   brown-lentil: {}
   cannellini-bean: {}
   chicken-broth: {aka: [chicken stock]}
+  chickpea: {}
   coconut-milk: {}
   jasmine-rice: {}
   lard: {}
@@ -96,6 +102,7 @@ pantry:
   black-peppercorn: {}
   cajun-seasoning: {}
   cayenne: {aka: [cayenne pepper]}
+  chili-powder: {}
   cornstarch: {}
   crushed-tomato: {aka: [crushed tomatoes]}
   cumin: {}
@@ -116,6 +123,7 @@ pantry:
   olive-oil: {aka: [evoo, extra virgin olive oil]}
   paella-rice: {aka: [bomba-rice]}
   paprika: {}
+  pasta: {}
   red-pepper-flake: {aka: [chili flakes, crushed red pepper]}
   red-wine-vinegar: {}
   saffron: {}
