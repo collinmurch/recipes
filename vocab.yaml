@@ -1,4 +1,5 @@
 produce:
+  apple: {}
   arugula: {aka: [baby arugula]}
   asparagus: {}
   avocado: {}
@@ -27,12 +28,14 @@ produce:
   red-bell-pepper: {}
   red-onion: {}
   rosemary: {aka: [fresh rosemary]}
+  sage: {aka: [fresh-sage]}
   scallion: {aka: [green onion, spring onion]}
   shallot: {}
   spinach: {aka: [baby spinach]}
   sugar-snap-pea: {aka: [snap pea]}
   sweet-pepper: {}
   sweet-potato: {}
+  thyme: {aka: [fresh-thyme]}
   white-onion: {}
   yellow-onion: {aka: [onion]}
 
@@ -46,6 +49,7 @@ meat:
   italian-sausage: {protein: pork}
   pork-chop: {protein: pork}
   pork-shoulder: {aka: [boston butt, pork butt], protein: pork}
+  turkey: {aka: [whole-turkey], protein: turkey}
 
 seafood: {}
 
@@ -68,9 +72,11 @@ bakery:
   ciabatta: {}
   corn-tortilla: {}
   crusty-bread: {}
+  rustic-sandwich-bread: {aka: [sandwich-bread], buy: loaf of 1 lb}
   sourdough: {aka: [sourdough bread]}
 
 aisles:
+  apple-cider: {buy: bottle of 8 cups}
   artichoke-heart: {}
   balsamic-glaze: {}
   beef-broth: {aka: [beef stock], buy: carton of 4 cups}
@@ -96,19 +102,26 @@ liquor:
   white-wine: {aka: [dry white wine]}
 
 pantry:
+  all-purpose-flour: {aka: [flour]}
+  allspice-berry: {}
   balsamic-vinegar: {}
   bay-leaf: {}
   black-pepper: {aka: [ground black pepper, pepper]}
   black-peppercorn: {}
+  brown-sugar: {}
   cajun-seasoning: {}
   cayenne: {aka: [cayenne pepper]}
+  celery-salt: {}
   chili-powder: {}
   cornstarch: {}
   crushed-tomato: {aka: [crushed tomatoes]}
   cumin: {}
   diced-tomato: {aka: [canned diced tomatoes]}
   dijon-mustard: {aka: [dijon]}
+  dried-marjoram: {}
   dried-oregano: {aka: [oregano]}
+  dried-rosemary: {}
+  dried-sage: {}
   dried-thyme: {}
   fire-roasted-tomato: {}
   fish-sauce: {}
